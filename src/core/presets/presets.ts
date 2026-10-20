@@ -189,12 +189,12 @@ export const FORMS: FormPreset[] = [
   {
     id: '1.1', family: 1, familyName: 'Ruban', variant: 'long', quality: 'mauvais',
     description: "Long ruban continu peu enroulé : s'enroule autour de la pièce et de l'outil.",
-    apply: (p) => form(p, { length: 180, radius: 35, twist: 1.5, macroNoise: Math.max(p.macroNoise, 0.55), macroNoiseScale: 12, endBreak: 0.4 }),
+    apply: (p) => form(p, { length: 180, radius: 70, twist: 2.5, macroNoise: Math.max(p.macroNoise, 0.7), macroNoiseScale: 14, endBreak: 0.4 }),
   },
   {
     id: '1.2', family: 1, familyName: 'Ruban', variant: 'court', quality: 'mauvais',
     description: 'Ruban court mal fragmenté.',
-    apply: (p) => form(p, { length: 35, radius: 25, twist: 2, macroNoise: Math.max(p.macroNoise, 0.5), macroNoiseScale: 8 }),
+    apply: (p) => form(p, { length: 40, radius: 30, twist: 3, macroNoise: Math.max(p.macroNoise, 0.7), macroNoiseScale: 8 }),
   },
   {
     id: '1.3', family: 1, familyName: 'Ruban', variant: 'enchevêtré', quality: 'mauvais',
@@ -249,7 +249,7 @@ export const FORMS: FormPreset[] = [
   {
     id: '5.2', family: 5, familyName: 'Hélicoïdal conique', variant: 'court', quality: 'bon',
     description: 'Hélice conique courte : copeau idéal, bien fragmenté.',
-    apply: (p) => form(p, { length: 22, radius: 1.5, radiusGrowth: 0.35, pitch: 1.6 * p.width, ejectionAngle: 25, macroNoise: Math.min(p.macroNoise, 0.3), macroNoiseScale: 8 }),
+    apply: (p) => form(p, { length: 28, radius: 1.8, radiusGrowth: 0.45, pitch: 1.5 * p.width, ejectionAngle: 25, macroNoise: Math.min(p.macroNoise, 0.3), macroNoiseScale: 8 }),
   },
   {
     id: '5.3', family: 5, familyName: 'Hélicoïdal conique', variant: 'enchevêtré', quality: 'mauvais',
@@ -259,7 +259,7 @@ export const FORMS: FormPreset[] = [
   {
     id: '6.1', family: 6, familyName: 'Arc', variant: 'attaché', quality: 'bon',
     description: 'Arcs encore liés entre eux : bonne fragmentation.',
-    apply: (p) => form(p, { length: 14, radius: 2.2, pitch: 0.3 * p.width, ejectionAngle: 10, linkedSegments: 3, linkAngle: 70, neck: 0.55, endBreak: 0.6 }),
+    apply: (p) => form(p, { length: 13, radius: 1.6, pitch: 0.3 * p.width, ejectionAngle: 10, linkedSegments: 3, linkAngle: 110, neck: 0.6, endBreak: 0.6 }),
   },
   {
     id: '6.2', family: 6, familyName: 'Arc', variant: 'détaché', quality: 'bon',
@@ -273,9 +273,16 @@ export const FORMS: FormPreset[] = [
       form(p, { length: 1.6, radius: 1.2, pitch: 0.15 * p.width, endBreak: 1, macroNoise: 0.6, macroNoiseScale: 1 });
       p.thickness *= 1.6;
       p.width *= 0.8;
-      p.thicknessNoise = Math.max(p.thicknessNoise, 0.2);
-      p.segmentDepth = Math.max(p.segmentDepth, 0.25);
-      p.segmentFreq = Math.max(p.segmentFreq, 3);
+      p.thicknessNoise = Math.max(p.thicknessNoise, 0.3);
+      p.segmentDepth = Math.max(p.segmentDepth, 0.3);
+      p.segmentFreq = Math.max(p.segmentFreq, 4);
+      p.crackDensity = Math.max(p.crackDensity, 6);
+      p.crackDepth = Math.max(p.crackDepth, 0.12 * p.width);
+      p.crackIrregularity = 0.9;
+      p.crackSide = 'deux';
+      p.microNoise = Math.max(p.microNoise, 4);
+      p.microNoiseScale = 0.12;
+      p.edgeRoundness = Math.min(p.edgeRoundness, 0.3);
     },
   },
   {

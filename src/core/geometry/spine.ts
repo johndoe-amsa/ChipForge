@@ -77,8 +77,8 @@ export function deriveShape(p: ChipParams): ShapeDerived {
     }
   }
 
-  const kappaTangle = (p.tangle * 1.2) / (2 * p.width + 1.5);
-  const tangleScale = 1.5 * p.width + 2;
+  const kappaTangle = (p.tangle * 1.3) / (2 * p.width + 1.5);
+  const tangleScale = 1.2 * p.width + 1.5;
   const volume = p.length * p.width * p.thickness;
   const confineRadius = Math.max(3 * p.width, Math.cbrt((3 * volume) / (4 * Math.PI * 0.02)));
 
@@ -131,7 +131,8 @@ export function buildSpine(p: ChipParams, d: ShapeDerived, seed: number, steps: 
 
   const mn = p.macroNoise;
   const ms = Math.max(0.05, p.macroNoiseScale);
-  const kappaWander = (0.6 / (d.R0 + 4)) * mn;
+  // Errance absolue de la fibre (1/mm) : serpentement des rubans, axe des hélices qui dérive.
+  const kappaWander = (0.7 / (4 + 3 * p.width)) * mn;
   const twistRad = (p.twist * Math.PI) / 180;
 
   // Liaisons entre arcs (ISO 6.1) : pliure inverse + léger vrillage.
@@ -171,10 +172,10 @@ export function buildSpine(p: ChipParams, d: ShapeDerived, seed: number, steps: 
     // Courbure et torsion locales de l'hélice nominale
     const R = radiusAt(d, s + ds * 0.5);
     let c = d.c;
-    if (mn > 0) c *= 1 + 0.35 * mn * noise.fbm1(s / ms + 11.3, 2);
+    if (mn > 0) c *= 1 + 0.25 * mn * noise.vfbm1(s / ms + 11.3, 2);
     let kappa = R / (R * R + c * c);
     const tau = c / (R * R + c * c);
-    if (mn > 0) kappa *= 1 + 0.3 * mn * noise.fbm1(s / ms + 47.9, 2);
+    if (mn > 0) kappa *= 1 + 0.2 * mn * noise.vfbm1(s / ms + 47.9, 2);
     kappa = Math.min(kappa, 0.95 / d.Rmin);
 
     const tx = T[o];
@@ -186,22 +187,29 @@ export function buildSpine(p: ChipParams, d: ShapeDerived, seed: number, steps: 
     let wz = tau * tz + kappa * B[o + 2];
 
     if (kappaWander > 0) {
-      wx += kappaWander * noise.fbm1(s / ms + 101.1, 2);
-      wy += kappaWander * noise.fbm1(s / ms + 211.7, 2);
-      wz += kappaWander * noise.fbm1(s / ms + 307.3, 2);
+      wx += kappaWander * noise.vfbm1(s / ms + 101.1, 2);
+      wy += kappaWander * noise.vfbm1(s / ms + 211.7, 2);
+      wz += kappaWander * noise.vfbm1(s / ms + 307.3, 2);
     }
     if (d.kappaTangle > 0) {
       const ts = d.tangleScale;
-      wx += d.kappaTangle * noise.fbm1(s / ts + 401.9, 3);
-      wy += d.kappaTangle * noise.fbm1(s / ts + 503.3, 3);
-      wz += d.kappaTangle * noise.fbm1(s / ts + 607.1, 3);
+      wx += d.kappaTangle * noise.vfbm1(s / ts + 401.9, 3);
+      wy += d.kappaTangle * noise.vfbm1(s / ts + 503.3, 3);
+      wz += d.kappaTangle * noise.vfbm1(s / ts + 607.1, 3);
+      // Direction d'avance moyenne : axe de l'hélice si le copeau est enroulé, tangente sinon.
+      const om = Math.sqrt(kappa * kappa + tau * tau);
+      if (om > 1e-9 && (2 * Math.PI) / om < 3 * conf && tau > 1e-6) {
+        Dx = (tau * tx + kappa * B[o]) / om;
+        Dy = (tau * ty + kappa * B[o + 1]) / om;
+        Dz = (tau * tz + kappa * B[o + 2]) / om;
+      }
       // Confinement : ramène la direction moyenne vers le centre de la pelote.
       const rx = Cx - X[o];
       const ry = Cy - X[o + 1];
       const rz = Cz - X[o + 2];
       const r = len3(rx, ry, rz);
-      if (r > 0.4 * conf) {
-        const k = ((p.tangle * 2.5) / conf) * smoothstep(0.4 * conf, 1.1 * conf, r);
+      if (r > 0.3 * conf) {
+        const k = ((p.tangle * 4) / conf) * smoothstep(0.3 * conf, 1.0 * conf, r);
         const ux = rx / r;
         const uy = ry / r;
         const uz = rz / r;
@@ -253,7 +261,8 @@ export function buildSpine(p: ChipParams, d: ShapeDerived, seed: number, steps: 
     X[o2 + 2] = X[o + 2] + 0.5 * ds * (tz + T[o2 + 2]);
 
     // Moyenne glissante de la tangente sur ~ une spire
-    const lam = Math.max(ds, 2 * Math.PI * Math.sqrt(R * R + c * c));
+    // Fenêtre ≈ une spire, bornée par la taille de la pelote (un ruban n'a pas de spires).
+    const lam = Math.max(ds, Math.min(2 * Math.PI * Math.sqrt(R * R + c * c), 0.5 * conf));
     const a = Math.min(1, ds / lam);
     Dx += (T[o2] - Dx) * a;
     Dy += (T[o2 + 1] - Dy) * a;
@@ -270,8 +279,8 @@ export function buildSpine(p: ChipParams, d: ShapeDerived, seed: number, steps: 
 
   function rollAt(s: number): number {
     let r = d.phi0 + twistRad * s;
-    if (mn > 0) r += 0.5 * mn * noise.fbm1(s / ms + 709.7, 2);
-    if (p.tangle > 0) r += 1.2 * p.tangle * noise.fbm1(s / d.tangleScale + 811.3, 2);
+    if (mn > 0) r += 0.3 * mn * noise.vfbm1(s / ms + 709.7, 2);
+    if (p.tangle > 0) r += 0.8 * p.tangle * noise.vfbm1(s / d.tangleScale + 811.3, 2);
     return r;
   }
 }

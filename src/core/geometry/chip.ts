@@ -150,6 +150,10 @@ class SectionEval {
   attStr = 1;
   attWav = 1;
   attNoise = 1;
+  attCrack = 1;
+  /** Amplitude (mm) et échelle (mm) du déchiquetage des bords. */
+  ragged = 0;
+  raggedScale = 0.1;
   sppLam = 99;
   sppSeg = 99;
 
@@ -181,6 +185,13 @@ class SectionEval {
     this.attStr = smoothstep(2, 4, spp(p.striationFreq, hw));
     const ns = Math.max(1e-4, p.microNoiseScale);
     this.attNoise = smoothstep(1.2, 2.5, ns / Math.max(hs, hw));
+    // Entailles plus étroites que le pas d'anneau : estompées plutôt qu'échantillonnées au hasard.
+    const hwCrack = Math.min(this.cracksA.meanHalfWidth || Infinity, this.cracksB.meanHalfWidth || Infinity);
+    this.attCrack = Number.isFinite(hwCrack) ? smoothstep(0.6, 1.6, hwCrack / hs) : 1;
+    const p2 = this.p;
+    this.raggedScale = Math.max(0.03, 0.6 * p2.crackDepth + 0.02);
+    this.ragged =
+      p2.crackDensity > 0 ? 0.3 * p2.crackDepth * (0.4 + 0.6 * p2.crackIrregularity) * smoothstep(1, 2.5, this.raggedScale / hs) : 0;
   }
 
   /** Atténuation moyenne pondérée des micro-reliefs, pour information. */
@@ -191,6 +202,7 @@ class SectionEval {
       [p.segmentDepth * p.thickness * 1000 * (p.segmentFreq > 0 ? 1 : 0), this.attSeg],
       [p.striationAmp * (p.striationFreq > 0 ? 1 : 0), this.attStr],
       [p.microNoise, this.attNoise],
+      [p.crackDensity > 0 ? p.crackDepth * 1000 : 0, this.attCrack],
     ];
     let wsum = 0;
     let lost = 0;
@@ -222,8 +234,8 @@ class SectionEval {
     out.halfW = halfW;
     out.tBase = p.thickness * mT * Math.sqrt(neckF);
     if (micro) {
-      let cA = this.cracksA.at(s);
-      let cB = this.cracksB.at(s);
+      let cA = this.attCrack > 0 ? this.cracksA.at(s) * this.attCrack : 0;
+      let cB = this.attCrack > 0 ? this.cracksB.at(s) * this.attCrack : 0;
       const lim = 0.42 * 2 * halfW;
       cA = Math.min(cA, lim);
       cB = Math.min(cB, lim);
@@ -342,8 +354,14 @@ class SectionEval {
 
   edges(l: Longi, micro: boolean, out: Edges): Edges {
     const p = this.p;
-    const xA = -l.halfW + l.crackA;
-    const xB = l.halfW - l.crackB;
+    let xA = -l.halfW + l.crackA;
+    let xB = l.halfW - l.crackB;
+    if (micro && this.ragged > 0) {
+      // Bord déchiqueté : petites dents irrégulières entre les entailles.
+      const sc = this.raggedScale;
+      xA += this.ragged * (0.5 + 0.5 * this.noise.fbm1(l.s / sc + 613.7, 2));
+      xB -= this.ragged * (0.5 + 0.5 * this.noise.fbm1(l.s / sc + 719.3, 2));
+    }
     out.ycA = this.faceY(l, -1, false, micro);
     out.ylA = this.faceY(l, -1, true, micro);
     out.ycB = this.faceY(l, 1, false, micro);
@@ -630,6 +648,11 @@ function signedVolume(grid: Omit<ChipGrid, 'flip' | 'colliders' | 'info'>): numb
   return vol / 6;
 }
 
+function spineStepCount(p: ChipParams, d: ShapeDerived): number {
+  const ds = Math.min(0.25, 0.08 * d.Rmin + 0.02, 0.25 * p.width + 0.01, p.length / 64);
+  return Math.min(400_000, Math.max(64, Math.ceil(p.length / ds)));
+}
+
 /** Génère la grille complète d'un copeau. */
 export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): ChipGrid {
   const d = deriveShape(p);
@@ -645,7 +668,8 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
   const { Ns, nW, nE, M } = res;
   const rings = Ns + 1;
 
-  const spineSteps = Math.min(600_000, Math.max(Ns * 2, Math.ceil((L / d.Rmin) * 8)));
+  // Pas d'intégration indépendant de la qualité : l'aperçu et l'export ont exactement la même fibre.
+  const spineSteps = spineStepCount(p, d);
   const spine = buildSpine(p, d, seed, spineSteps);
   const sec = new SectionEval(p, seed, spine.links, nW, nE);
   const hs = L / Ns;

@@ -98,3 +98,14 @@ describe('géométrie du copeau', () => {
     expect(m.positions.length / 3).toBeLessThanOrEqual(PREVIEW_QUALITY.maxVertices + 2 * 200 * 30);
   });
 });
+
+describe('cohérence aperçu / export', () => {
+  it("place le copeau exactement au même endroit quelle que soit la résolution", () => {
+    const a = buildChipGrid(DEFAULT_PARAMS, 9, PREVIEW_QUALITY);
+    const b = buildChipGrid(DEFAULT_PARAMS, 9, EXPORT_QUALITY);
+    expect(Array.from(a.colliders)).toEqual(Array.from(b.colliders));
+    const ma = gridToMesh(a);
+    const mb = gridToMesh(b);
+    for (let k = 0; k < 6; k++) expect(Math.abs(ma.bounds[k] - mb.bounds[k])).toBeLessThan(0.05);
+  });
+});

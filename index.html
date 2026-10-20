@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="ChipForge — générateur paramétrique de copeaux d'usinage 3D (OBJ / STEP) pour le rendu." />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>ChipForge</title>
+  </head>
+  <body>
+    <noscript><p class="cf-fatal">ChipForge nécessite JavaScript et WebGL.</p></noscript>
+    <div class="cf-app">
+      <header id="topbar" class="cf-topbar"></header>
+      <main class="cf-main">
+        <aside id="panel-left" class="cf-panel cf-panel-left" aria-label="Presets et paramètres"></aside>
+        <section id="viewport" class="cf-viewport" aria-label="Vue 3D"></section>
+        <aside id="panel-right" class="cf-panel cf-panel-right" aria-label="Tas, statistiques et export"></aside>
+      </main>
+    </div>
+    <div id="scrim" class="cf-scrim"></div>
+    <div id="toasts" class="cf-toasts" aria-live="polite"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

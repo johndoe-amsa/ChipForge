@@ -1,0 +1,12 @@
+# Mises à jour de sécurité hebdomadaires (npm et actions GitHub).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

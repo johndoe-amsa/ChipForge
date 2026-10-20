@@ -19,13 +19,14 @@ export interface ExportItem {
   transform: RigidTransform;
 }
 
-/** Accumulateur de texte encodé en UTF-8 par blocs (évite les chaînes géantes). */
-class TextSink {
-  private parts: Uint8Array[] = [];
+/** Accumulateur de texte encodé en UTF-8, vidé par blocs vers un puits (export en flux). */
+export class TextSink {
   private buf: string[] = [];
   private len = 0;
   private readonly enc = new TextEncoder();
   size = 0;
+
+  constructor(private readonly sink: (chunk: Uint8Array) => void) {}
 
   push(s: string): void {
     this.buf.push(s);
@@ -33,26 +34,25 @@ class TextSink {
     if (this.len > 1 << 20) this.flush();
   }
 
-  private flush(): void {
+  flush(): void {
     if (this.buf.length === 0) return;
     const u = this.enc.encode(this.buf.join(''));
-    this.parts.push(u);
     this.size += u.length;
     this.buf = [];
     this.len = 0;
+    this.sink(u);
   }
+}
 
-  bytes(): Uint8Array {
-    this.flush();
-    const out = new Uint8Array(this.size);
-    let o = 0;
-    for (const p of this.parts) {
-      out.set(p, o);
-      o += p.length;
-    }
-    this.parts = [];
-    return out;
+export function concatChunks(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((a, p) => a + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
   }
+  return out;
 }
 
 function fmt(v: number, digits: number): string {
@@ -66,22 +66,37 @@ function fmt(v: number, digits: number): string {
   return r === '-0' ? '0' : r;
 }
 
-/** Écrit un OBJ (quads, UV, normales lisses, un objet par copeau, groupes de faces nommés). */
-export function writeOBJ(items: ExportItem[], opt: ObjOptions): Uint8Array {
-  const sink = new TextSink();
-  const scale = opt.unit === 'm' ? 0.001 : 1;
-  const pd = opt.unit === 'm' ? 8 : 5;
-  sink.push(`# ChipForge — géométrie de copeaux d'usinage\n`);
-  sink.push(`# Unité : ${opt.unit === 'm' ? 'mètre' : 'millimètre'} ; axe vertical : +Y ; UV : ${opt.uvMode === 'reel' ? `échelle réelle (1 unité UV = ${opt.uvScaleMM} mm)` : 'normalisées 0–1 par copeau'}\n`);
-  sink.push(`# Groupes : ${GROUP_NAMES.join(', ')}\n`);
-  sink.push(`mtllib ${opt.mtlName}\n`);
+/**
+ * Écrit un OBJ en flux (quads, UV, normales lisses, un objet par copeau, groupes de faces nommés).
+ * Chaque copeau est sérialisé puis libéré : la mémoire reste bornée même pour un gros tas.
+ */
+export class ObjWriter {
+  private readonly sink: TextSink;
+  private vBase = 1;
+  private tBase = 1;
+  private nBase = 1;
+  private readonly scale: number;
+  private readonly pd: number;
 
-  let vBase = 1;
-  let tBase = 1;
-  let nBase = 1;
-  for (const item of items) {
+  constructor(private readonly opt: ObjOptions, out: (chunk: Uint8Array) => void) {
+    this.sink = new TextSink(out);
+    this.scale = opt.unit === 'm' ? 0.001 : 1;
+    this.pd = opt.unit === 'm' ? 8 : 5;
+    const sink = this.sink;
+    sink.push(`# ChipForge — géométrie de copeaux d'usinage\n`);
+    sink.push(`# Unité : ${opt.unit === 'm' ? 'mètre' : 'millimètre'} ; axe vertical : +Y ; UV : ${opt.uvMode === 'reel' ? `échelle réelle (1 unité UV = ${opt.uvScaleMM} mm)` : 'normalisées 0–1 par copeau'}\n`);
+    sink.push(`# Groupes : ${GROUP_NAMES.join(', ')}\n`);
+    sink.push(`mtllib ${opt.mtlName}\n`);
+  }
+
+  get bytesWritten(): number {
+    return this.sink.size;
+  }
+
+  add(item: ExportItem): void {
+    const { opt, sink, pd } = this;
     const m = item.mesh;
-    const P = transformPoints(m.positions, item.transform, scale);
+    const P = transformPoints(m.positions, item.transform, this.scale);
     const N = rotateVectors(m.normals, item.transform);
     sink.push(`o ${item.name}\n`);
     for (let i = 0; i < P.length; i += 3) sink.push(`v ${fmt(P[i], pd)} ${fmt(P[i + 1], pd)} ${fmt(P[i + 2], pd)}\n`);
@@ -99,16 +114,28 @@ export function writeOBJ(items: ExportItem[], opt: ObjOptions): Uint8Array {
         let line = 'f';
         for (let k = 0; k < 4; k++) {
           const v = m.quads[q * 4 + k];
-          line += ` ${m.vPos[v] + vBase}/${v + tBase}/${m.vNrm[v] + nBase}`;
+          line += ` ${m.vPos[v] + this.vBase}/${v + this.tBase}/${m.vNrm[v] + this.nBase}`;
         }
         sink.push(line + '\n');
       }
     }
-    vBase += m.positions.length / 3;
-    tBase += m.vPos.length;
-    nBase += m.normals.length / 3;
+    this.vBase += m.positions.length / 3;
+    this.tBase += m.vPos.length;
+    this.nBase += m.normals.length / 3;
   }
-  return sink.bytes();
+
+  finish(): void {
+    this.sink.flush();
+  }
+}
+
+/** Variante en mémoire (tests, petits exports). */
+export function writeOBJ(items: ExportItem[], opt: ObjOptions): Uint8Array {
+  const parts: Uint8Array[] = [];
+  const w = new ObjWriter(opt, (c) => parts.push(c));
+  for (const it of items) w.add(it);
+  w.finish();
+  return concatChunks(parts);
 }
 
 export function writeMTL(): string {

@@ -86,6 +86,33 @@ export class Noise {
     );
   }
 
+  /**
+   * Bruit de valeur 1D lissé (valeurs aléatoires aux nœuds, interpolation quintique).
+   * Contrairement au bruit de gradient, son intégrale ne s'annule pas : adapté aux
+   * grandeurs intégrées (courbure, dérive d'axe) qui doivent produire une vraie marche aléatoire.
+   */
+  value1(x: number): number {
+    const xi = Math.floor(x);
+    const i = xi & 1023;
+    const v0 = this.grad1[this.perm[i + 7]];
+    const v1 = this.grad1[this.perm[i + 8]];
+    return lerp(v0, v1, fade(x - xi));
+  }
+
+  vfbm1(x: number, octaves = 2): number {
+    let sum = 0;
+    let amp = 1;
+    let norm = 0;
+    let f = 1;
+    for (let o = 0; o < octaves; o++) {
+      sum += amp * this.value1(x * f + o * 23.7);
+      norm += amp;
+      amp *= 0.5;
+      f *= 2;
+    }
+    return sum / norm;
+  }
+
   /** Bruit fractal 1D (somme d'octaves normalisée). */
   fbm1(x: number, octaves = 3, lacunarity = 2, gain = 0.5): number {
     let sum = 0;

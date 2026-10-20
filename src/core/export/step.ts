@@ -69,8 +69,10 @@ class Writer {
   private id = 0;
   private chunks: string[] = [];
   private len = 0;
-  private parts: Uint8Array[] = [];
   private readonly enc = new TextEncoder();
+  size = 0;
+
+  constructor(private readonly out: (chunk: Uint8Array) => void) {}
 
   add(body: string): number {
     const i = ++this.id;
@@ -84,23 +86,13 @@ class Writer {
     if (this.len > 1 << 20) this.flush();
   }
 
-  private flush(): void {
+  flush(): void {
     if (!this.chunks.length) return;
-    this.parts.push(this.enc.encode(this.chunks.join('')));
+    const u = this.enc.encode(this.chunks.join(''));
+    this.size += u.length;
     this.chunks = [];
     this.len = 0;
-  }
-
-  bytes(): Uint8Array {
-    this.flush();
-    const total = this.parts.reduce((a, p) => a + p.length, 0);
-    const out = new Uint8Array(total);
-    let o = 0;
-    for (const p of this.parts) {
-      out.set(p, o);
-      o += p.length;
-    }
-    return out;
+    this.out(u);
   }
 }
 
@@ -284,9 +276,19 @@ function writeSolid(c: Ctx, item: StepItem): number {
   return w.add(`MANIFOLD_SOLID_BREP(${str(item.name)},#${shell})`);
 }
 
-/** Écrit un fichier STEP contenant un copeau (pièce) ou plusieurs (assemblage). */
-export function writeSTEP(items: StepItem[], fileName: string, date = new Date()): Uint8Array {
-  const w = new Writer();
+/**
+ * Écrit un fichier STEP en flux : un copeau (pièce) ou plusieurs (assemblage).
+ * `getItem(i)` est appelé une seule fois par copeau, au moment de l'écrire : la géométrie
+ * peut être générée à la demande et libérée aussitôt.
+ */
+export function writeSTEPStream(
+  count: number,
+  getItem: (i: number) => StepItem,
+  fileName: string,
+  out: (chunk: Uint8Array) => void,
+  date = new Date(),
+): number {
+  const w = new Writer(out);
   const stamp = date.toISOString().slice(0, 19);
   w.raw('ISO-10303-21;\nHEADER;\n');
   w.raw(`FILE_DESCRIPTION(('ChipForge - geometrie de copeaux d''usinage (B-Rep NURBS)'),'2;1');\n`);
@@ -319,8 +321,8 @@ export function writeSTEP(items: StepItem[], fileName: string, date = new Date()
 
   const c: Ctx = { w, geomCtx, productCtx, pdCtx, styles, styled: [] };
 
-  if (items.length === 1) {
-    const it = items[0];
+  if (count === 1) {
+    const it = getItem(0);
     const { pds } = writeProduct(c, it.name);
     const axis = writeAxis(w);
     const solid = writeSolid(c, it);
@@ -332,7 +334,8 @@ export function writeSTEP(items: StepItem[], fileName: string, date = new Date()
     const rootAxis = writeAxis(w);
     const childAxes: number[] = [];
     const children: { pd: number; rep: number; axis: number; name: string }[] = [];
-    for (const it of items) {
+    for (let i = 0; i < count; i++) {
+      const it = getItem(i);
       const prod = writeProduct(c, it.name);
       const axis = writeAxis(w);
       const solid = writeSolid(c, it);
@@ -356,5 +359,20 @@ export function writeSTEP(items: StepItem[], fileName: string, date = new Date()
 
   w.add(`MECHANICAL_DESIGN_GEOMETRIC_PRESENTATION_REPRESENTATION('',${refs(c.styled)},#${geomCtx})`);
   w.raw('ENDSEC;\nEND-ISO-10303-21;\n');
-  return w.bytes();
+  w.flush();
+  return w.size;
+}
+
+/** Variante en mémoire (tests, petits exports). */
+export function writeSTEP(items: StepItem[], fileName: string, date = new Date()): Uint8Array {
+  const parts: Uint8Array[] = [];
+  writeSTEPStream(items.length, (i) => items[i], fileName, (c) => parts.push(c), date);
+  const total = parts.reduce((a, p) => a + p.length, 0);
+  const res = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    res.set(p, o);
+    o += p.length;
+  }
+  return res;
 }
