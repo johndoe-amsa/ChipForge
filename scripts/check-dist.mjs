@@ -8,6 +8,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { inlineScriptProblems } from './html-guard.mjs';
 
 const DIST = new URL('../dist/', import.meta.url).pathname;
 
@@ -36,9 +37,7 @@ for (const file of files) {
     if (!ALLOWED.some((re) => re.test(url))) errors.push(`${file}: URL externe non autorisée : ${url}`);
   }
   if (ext === '.html') {
-    for (const tag of text.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
-      if (!/\bsrc=/.test(tag[1]) || tag[2].trim()) errors.push(`${file}: script inline interdit`);
-    }
+    for (const problem of inlineScriptProblems(text)) errors.push(`${file}: ${problem}`);
     if (/\son[a-z]+\s*=/i.test(text)) errors.push(`${file}: attribut de gestionnaire d'événement inline interdit`);
     if (!text.includes('http-equiv="Content-Security-Policy"')) errors.push(`${file}: balise CSP absente`);
   }

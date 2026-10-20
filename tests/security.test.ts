@@ -5,6 +5,7 @@ import { parsePreset, serializePreset, MAX_PRESET_BYTES } from '../src/app/prese
 import { DEFAULT_PARAMS } from '../src/core/params';
 import { DEFAULT_PILE, DEFAULT_SELECTION } from '../src/core/presets/presets';
 import { safeFileName } from '../src/core/export/transform';
+import { inlineScriptProblems } from '../scripts/html-guard.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
@@ -53,11 +54,25 @@ describe('hygiène du code et des dépendances', () => {
 
   it("index.html ne contient ni script inline ni ressource externe", () => {
     const html = read('index.html');
-    for (const tag of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
-      expect(/\bsrc=/.test(tag[1])).toBe(true);
-      expect(tag[2].trim()).toBe('');
-    }
+    expect(inlineScriptProblems(html)).toEqual([]);
     expect(html).not.toMatch(/https?:\/\//);
+  });
+
+  it('le détecteur de scripts inline résiste aux variantes de balises', () => {
+    expect(inlineScriptProblems('<script type="module" src="/a.js"></script>')).toEqual([]);
+    expect(inlineScriptProblems('<SCRIPT SRC="/a.js"></SCRIPT >')).toEqual([]);
+    for (const bad of [
+      '<script>alert(1)</script>',
+      '<SCRIPT>alert(1)</SCRIPT>',
+      '<Script >alert(1)</script >',
+      '<script\n>alert(1)</script\t foo="bar">',
+      '<script src="/a.js">alert(1)</script>',
+      '<script data-src="/a.js"></script>',
+      '<script',
+    ]) {
+      expect(inlineScriptProblems(bad).length, bad).toBeGreaterThan(0);
+    }
+    expect(inlineScriptProblems('<scripts></scripts>')).toEqual([]);
   });
 
   it('les dépendances d’exécution sont limitées et figées', () => {
