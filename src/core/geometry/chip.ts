@@ -2,6 +2,7 @@ import type { ChipParams, QualitySettings } from '../params';
 import { Noise } from '../noise';
 import { Rng } from '../rng';
 import { buildSpine, deriveShape, len3, newFrame, sampleSpine, smoothstep, type FrameSample, type ShapeDerived, type Spine } from './spine';
+import { relaxSpine } from './relax';
 
 /**
  * Construction d'un copeau sous forme de grille structurée :
@@ -27,6 +28,8 @@ export interface ChipInfo {
   effectiveRadius: number;
   /** Atténuation appliquée aux micro-reliefs faute de résolution (0 = aucune, 1 = totalement lissés). */
   microAttenuation: number;
+  /** Zones d'auto-intersection : détectées puis restantes après résolution (null si l'option est désactivée). */
+  selfContacts: { initial: number; residual: number } | null;
 }
 
 export interface ChipGrid {
@@ -52,6 +55,9 @@ export interface ChipGrid {
 }
 
 const TAU = Math.PI * 2;
+/** Itérations de relaxation par essai, et nombre de réglages d'évitement alternatifs. */
+const RELAX_BUDGET = 240;
+const RELAX_VARIANTS = 2;
 
 interface Longi {
   s: number;
@@ -670,7 +676,18 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
 
   // Pas d'intégration indépendant de la qualité : l'aperçu et l'export ont exactement la même fibre.
   const spineSteps = spineStepCount(p, d);
-  const spine = buildSpine(p, d, seed, spineSteps);
+  let spine = buildSpine(p, d, seed, spineSteps);
+  let relax = p.avoidOverlap ? relaxSpine(spine, p, RELAX_BUDGET) : null;
+  // Configuration bloquée (rare) : croissance rejouée avec un réglage d'évitement alternatif,
+  // déterministe ; la meilleure fibre est retenue.
+  for (let variant = 1; relax && relax.residual > 0 && variant <= RELAX_VARIANTS; variant++) {
+    const alt = buildSpine(p, d, seed, spineSteps, variant);
+    const r = relaxSpine(alt, p, RELAX_BUDGET);
+    if (r.residual < relax.residual) {
+      spine = alt;
+      relax = r;
+    }
+  }
   const sec = new SectionEval(p, seed, spine.links, nW, nE);
   const hs = L / Ns;
   sec.setResolution(hs, (p.width * Math.max(p.widthStart, p.widthEnd, 1)) / nW);
@@ -769,6 +786,7 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
       effectiveGrowth: d.growth,
       effectiveRadius: d.R0,
       microAttenuation: sec.microAttenuation(),
+      selfContacts: relax ? { initial: relax.initial, residual: relax.residual } : null,
     },
   };
 }
