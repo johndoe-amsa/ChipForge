@@ -151,10 +151,3 @@ export function writeMTL(): string {
   }
   return s;
 }
-
-/** Estimation grossière de la taille de l'OBJ (octets), pour avertir l'utilisateur. */
-export function estimateObjSize(meshes: ChipMesh[]): number {
-  let n = 0;
-  for (const m of meshes) n += (m.positions.length / 3) * 34 + m.vPos.length * 20 + (m.normals.length / 3) * 24 + (m.quads.length / 4) * 52;
-  return n;
-}

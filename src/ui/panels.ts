@@ -241,9 +241,9 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
   const defCount: NumberDef = { kind: 'number', key: 'length', label: 'Nombre de copeaux', section: 'macro', hint: 'Taille du lot (200 max).', min: 1, max: 200, step: 1, hardMin: 1, hardMax: 200, integer: true };
   const defVar: NumberDef = { ...defCount, label: 'Variabilité', hint: 'Dispersion des paramètres autour du preset.', unit: '%', min: 0, max: 100, step: 1, hardMin: 0, hardMax: 100, integer: true };
   const defSpread: NumberDef = { ...defCount, label: 'Étalement', hint: 'Rayon de la zone de chute (0 = automatique).', unit: 'mm', min: 0, max: 200, step: 1, hardMin: 0, hardMax: 2000, integer: false };
-  const count = numberControl(defCount, () => app.state.pile.count, (v) => app.setPile({ count: Math.round(Math.min(200, Math.max(1, v))) }), () => false, () => app.setPile({ count: 40 }));
-  const variab = numberControl(defVar, () => Math.round(app.state.pile.variability * 100), (v) => app.setPile({ variability: Math.min(100, Math.max(0, v)) / 100 }), () => false, () => app.setPile({ variability: 0.5 }));
-  const spread = numberControl(defSpread, () => app.state.pile.spread, (v) => app.setPile({ spread: Math.min(2000, Math.max(0, v)) }), () => false, () => app.setPile({ spread: 0 }));
+  const count = numberControl(defCount, () => app.state.pile.count, (v) => app.setPile({ count: Math.round(Math.min(200, Math.max(1, v))) }), () => false, () => app.setPile({ count: 40 }), 'pile-count');
+  const variab = numberControl(defVar, () => Math.round(app.state.pile.variability * 100), (v) => app.setPile({ variability: Math.min(100, Math.max(0, v)) / 100 }), () => false, () => app.setPile({ variability: 0.5 }), 'pile-variability');
+  const spread = numberControl(defSpread, () => app.state.pile.spread, (v) => app.setPile({ spread: Math.min(2000, Math.max(0, v)) }), () => false, () => app.setPile({ spread: 0 }), 'pile-spread');
   const physics = toggleControl('Simulation physique', 'Chute réaliste sans interpénétration (sinon dispersion simple sur la grille).', () => app.state.pile.physics, (v) => app.setPile({ physics: v }));
   const rerun = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-1', title: 'Nouvelle seed et nouvelle chute', attrs: { type: 'button' } }, [icon('play'), h('span', { text: 'Nouvelle chute' })]);
   rerun.addEventListener('click', () => app.rerollSeed());
@@ -291,7 +291,7 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     (v) => app.setExport({ uvMode: v }),
   );
   const defUv: NumberDef = { kind: 'number', key: 'length', label: '1 unité UV =', section: 'macro', hint: 'Nombre de millimètres couverts par une répétition de texture.', unit: 'mm', min: 0.5, max: 100, step: 0.1, hardMin: 0.01, hardMax: 10000, log: true };
-  const uvScale = numberControl(defUv, () => app.state.exp.uvScaleMM, (v) => app.setExport({ uvScaleMM: Math.min(10000, Math.max(0.01, v)) }), () => false, () => app.setExport({ uvScaleMM: 10 }));
+  const uvScale = numberControl(defUv, () => app.state.exp.uvScaleMM, (v) => app.setExport({ uvScaleMM: Math.min(10000, Math.max(0.01, v)) }), () => false, () => app.setExport({ uvScaleMM: 10 }), 'uv-scale');
   const meshDetail = segmented(
     [
       { value: 'standard', label: 'Standard', title: 'Jusqu’à 600 k sommets par copeau' },

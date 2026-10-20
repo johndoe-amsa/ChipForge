@@ -44,8 +44,9 @@ export function numberControl(
   set: (v: number) => void,
   isModified: () => boolean,
   reset: () => void,
+  idOverride?: string,
 ): Control {
-  const id = `p-${def.key}`;
+  const id = idOverride ?? `p-${def.key}`;
   const range = h('input', {
     class: 'cf-range',
     attrs: { type: 'range', min: '0', max: String(SLIDER_STEPS), step: '1', 'aria-label': def.label, id },

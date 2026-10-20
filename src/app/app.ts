@@ -85,6 +85,9 @@ export class App {
   private genToken = 0;
   private sim: { cancelled: boolean } | null = null;
   private refit = true;
+  /** Affinage automatique de l'aperçu (micro-reliefs) après une pause dans les réglages. */
+  private refineTimer: ReturnType<typeof setTimeout> | undefined;
+  private refining = false;
 
   constructor(viewport: HTMLElement) {
     const base = composePreset(DEFAULT_SELECTION);
@@ -237,6 +240,7 @@ export class App {
 
   scheduleRegen(delay = 45): void {
     clearTimeout(this.regenTimer);
+    clearTimeout(this.refineTimer);
     this.regenTimer = setTimeout(() => this.regenerate(), delay);
   }
 
@@ -245,13 +249,18 @@ export class App {
     this.emit('status');
   }
 
-  private async regenerate(): Promise<void> {
+  private async regenerate(refine = false): Promise<void> {
     const token = ++this.genToken;
     if (this.sim) this.sim.cancelled = true;
     this.sim = null;
+    this.refining = refine;
     const specs = this.chipSpecs();
-    const quality = previewQuality(this.state.view.tier, specs.length);
-    this.setStatus({ phase: 'generation', progress: 0, message: specs.length > 1 ? `Génération de ${specs.length} copeaux…` : 'Génération…' });
+    const quality = previewQuality(refine ? 'detaille' : this.state.view.tier, specs.length);
+    this.setStatus({
+      phase: 'generation',
+      progress: 0,
+      message: refine ? 'Affinage des micro-reliefs…' : specs.length > 1 ? `Génération de ${specs.length} copeaux…` : 'Génération…',
+    });
     let res: Awaited<ReturnType<ReturnType<typeof previewWorker>['generate']>>;
     try {
       res = await previewWorker().generate(specs, quality, (done, total) => {
@@ -264,12 +273,13 @@ export class App {
     if (!res || token !== this.genToken) return;
     this.meshes = res.meshes;
     const genMs = res.ms;
+    this.refining = false;
 
     if (this.state.mode === 'unique') {
       const m = this.meshes[0];
       this.transforms = [{ q: [...IDENTITY.q], t: [0, -m.bounds[1], 0] }];
       this.viewer.setChips(this.meshes, this.transforms);
-      this.finishRegen(genMs);
+      this.finishRegen(genMs, refine);
       return;
     }
 
@@ -314,13 +324,19 @@ export class App {
     }
   }
 
-  private finishRegen(ms: number): void {
+  private finishRegen(ms: number, wasRefine = false): void {
     if (this.refit) {
       this.viewer.frame(true);
       this.refit = false;
     }
     this.setStatus({ phase: 'pret', progress: 1, message: '', lastMs: ms });
     this.emit('meshes');
+    // Copeau unique en aperçu rapide : affinage automatique si des micro-reliefs ont été lissés.
+    const att = this.meshes[0]?.info.microAttenuation ?? 0;
+    clearTimeout(this.refineTimer);
+    if (!wasRefine && this.state.mode === 'unique' && this.state.view.tier === 'rapide' && att > 0.02) {
+      this.refineTimer = setTimeout(() => void this.regenerate(true), 650);
+    }
   }
 
   frame(): void {
@@ -329,8 +345,9 @@ export class App {
 
   // ------------------------------------------------------------ export
 
+  /** Vrai tant que la géométrie affichée ne correspond pas encore aux réglages (l'affinage ne compte pas). */
   get busy(): boolean {
-    return this.status.phase === 'generation' || this.status.phase === 'simulation';
+    return this.status.phase === 'simulation' || (this.status.phase === 'generation' && !this.refining);
   }
 
   async exportAs(format: 'obj' | 'step'): Promise<void> {

@@ -32,7 +32,7 @@ export class Viewer {
   private uvChecker = false;
   private uv: UvPreview = { mode: 'reel', scaleMM: 10 };
   private gridStep = 1;
-  private readonly clock = new THREE.Clock();
+  private readonly timer = new THREE.Timer();
   private needsRender = true;
   onGridStep?: (minor: number, major: number) => void;
 
@@ -92,7 +92,8 @@ export class Viewer {
   }
 
   private tick(): void {
-    const dt = this.clock.getDelta();
+    this.timer.update();
+    const dt = this.timer.getDelta();
     if (this.helper.animating) {
       this.helper.update(dt);
       this.needsRender = true;
