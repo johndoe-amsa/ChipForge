@@ -90,7 +90,7 @@ Le site est 100 % statique : pas de serveur, pas de variable d'environnement, pa
 | Code défensif | Aucun `innerHTML`, `eval`, `new Function` ni script inline (vérifié par les tests). Le DOM est construit avec `textContent` uniquement. |
 | Import de presets | JSON limité à 256 Ko. Seules les clés connues sont lues (protection contre la pollution de prototype), les valeurs sont bornées et les identifiants vérifiés contre les listes internes. Rien n'est exécuté. |
 | Dépendances | 3 bibliothèques d'exécution (`three`, `fflate`, `@dimforge/rapier3d-compat`), versions **figées** + `package-lock.json`. `.npmrc` : `ignore-scripts=true` (aucun script d'installation tiers exécuté). `npm audit` : 0 vulnérabilité. |
-| CI | `.github/workflows/ci.yml` : audit, typage, tests, build et contrôle du bundle, à chaque push. Droits en lecture seule, actions GitHub figées par SHA de commit. `.github/dependabot.yml` propose chaque semaine les mises à jour de sécurité. |
+| CI | `.github/workflows/ci.yml` : audit, typage, tests, build et contrôle du bundle, à chaque push. Droits en lecture seule, actions GitHub figées par SHA de commit. `.github/dependabot.yml` : pas de montée de version automatique (versions figées) ; activer « Dependabot security updates » dans *Settings → Code security* pour recevoir les correctifs de sécurité. |
 | Fichiers générés | OBJ, MTL et STEP sont du texte pur. Les noms de fichiers sont assainis. Les téléchargements se font en local (Blob), sans réseau. |
 
 ## Développement

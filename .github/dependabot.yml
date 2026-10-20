@@ -1,12 +1,16 @@
-# Mises à jour de sécurité hebdomadaires (npm et actions GitHub).
+# Dependabot : pas de montées de version automatiques (versions figées volontairement).
+# `open-pull-requests-limit: 0` désactive les mises à jour de version ; les mises à jour
+# de SÉCURITÉ restent proposées si « Dependabot security updates » est activé dans
+# Settings → Code security du dépôt.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
