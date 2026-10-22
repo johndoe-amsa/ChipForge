@@ -70,11 +70,17 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
   const pileRaw = own(raw, 'pile');
   const pr = isObj(pileRaw) ? pileRaw : {};
   const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+  const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
   const pile: PileSettings = {
     count: Math.round(num(own(pr, 'count'), 1, 200, DEFAULT_PILE.count)),
     variability: num(own(pr, 'variability'), 0, 1, DEFAULT_PILE.variability),
     spread: num(own(pr, 'spread'), 0, 2000, DEFAULT_PILE.spread),
-    physics: typeof own(pr, 'physics') === 'boolean' ? (own(pr, 'physics') as boolean) : DEFAULT_PILE.physics,
+    physics: bool(own(pr, 'physics'), DEFAULT_PILE.physics),
+    container: own(pr, 'container') === 'bac' ? 'bac' : 'sol',
+    binLength: num(own(pr, 'binLength'), 0, 2000, DEFAULT_PILE.binLength),
+    binWidth: num(own(pr, 'binWidth'), 0, 2000, DEFAULT_PILE.binWidth),
+    binHeight: num(own(pr, 'binHeight'), 0, 2000, DEFAULT_PILE.binHeight),
+    exportBin: bool(own(pr, 'exportBin'), DEFAULT_PILE.exportBin),
   };
 
   return {

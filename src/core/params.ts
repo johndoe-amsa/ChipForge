@@ -3,6 +3,8 @@
  * Unités : longueurs en mm, micro-reliefs en µm, angles en degrés.
  */
 
+import { TEMPER_CHART_OPTIONS, type TemperChart } from './temper';
+
 export type BurrSide = 'aucun' | 'A' | 'B' | 'deux';
 export type CrackSide = 'A' | 'B' | 'deux';
 
@@ -57,11 +59,17 @@ export interface ChipParams {
   microNoise: number;
   microNoiseScale: number;
   thicknessNoise: number;
+  // Couleurs de revenu
+  temperLevel: number;
+  temperSpread: number;
+  temperScale: number;
+  temperFaceBias: number;
+  temperChart: TemperChart;
 }
 
 export type ParamKey = keyof ChipParams;
 
-export type SectionId = 'macro' | 'section' | 'bords' | 'profil' | 'micro' | 'bruit';
+export type SectionId = 'macro' | 'section' | 'bords' | 'profil' | 'micro' | 'bruit' | 'couleur';
 
 export const SECTIONS: { id: SectionId; title: string; hint: string }[] = [
   { id: 'macro', title: 'Macro-géométrie', hint: 'Forme globale : longueur, enroulement, hélice, torsion.' },
@@ -70,6 +78,11 @@ export const SECTIONS: { id: SectionId; title: string; hint: string }[] = [
   { id: 'profil', title: 'Profil longitudinal', hint: 'Effilement le long de la fibre et cassure des extrémités.' },
   { id: 'micro', title: 'Micro-reliefs', hint: 'Lamelles de cisaillement, stries, ondulation et segmentation.' },
   { id: 'bruit', title: 'Bruit & irrégularités', hint: "Irrégularités aléatoires pour casser l'aspect synthétique." },
+  {
+    id: 'couleur',
+    title: 'Couleurs de revenu',
+    hint: "Teintes d'oxydation dues à l'échauffement à la coupe. Exportées en couleurs de sommets (OBJ, lues par Blender) et en couleur par face (STEP, matériaux MTL).",
+  },
 ];
 
 interface BaseDef {
@@ -204,6 +217,19 @@ export const PARAM_DEFS: ParamDef[] = [
   num('microNoise', 'Bruit de surface', 'bruit', 'µm', [0, 30, 0.1], [0, 300], 'Rugosité aléatoire des faces.', {}),
   num('microNoiseScale', 'Échelle du bruit de surface', 'bruit', 'mm', [0.02, 2, 0.01], [0.005, 20], 'Taille du grain de la rugosité.', { log: true }),
   num('thicknessNoise', "Bruit d'épaisseur", 'bruit', undefined, [0, 0.5, 0.01], [0, 0.9], "Variation aléatoire de l'épaisseur.", {}),
+  // --- Couleurs de revenu
+  num('temperLevel', 'Teinte de revenu', 'couleur', undefined, [0, 1, 0.01], [0, 1], "Position dans le nuancier d'oxydation : 0 = métal nu, puis (aciers) paille → or → bronze → pourpre → bleu → gris. Plus le copeau a chauffé, plus la teinte avance.", {}),
+  num('temperSpread', 'Variation de teinte', 'couleur', undefined, [0, 0.5, 0.01], [0, 1], 'Écart de teinte le long du copeau (conditions de coupe changeantes) et, en mode tas, entre copeaux.', {}),
+  num('temperScale', 'Échelle des variations', 'couleur', 'mm', [1, 200, 0.5], [0.5, 2000], 'Longueur sur laquelle la teinte change le long de la fibre.', { log: true }),
+  num('temperFaceBias', 'Écart face de coupe / face libre', 'couleur', undefined, [-0.3, 0.3, 0.01], [-0.5, 0.5], "La face de coupe, frottée sur l'outil, chauffe davantage : sa teinte est en avance sur celle de la face libre.", {}),
+  {
+    kind: 'select',
+    key: 'temperChart',
+    label: "Famille d'oxydes",
+    section: 'couleur',
+    hint: 'Nuancier selon la matière (fixé par le preset de matière).',
+    options: TEMPER_CHART_OPTIONS,
+  },
 ];
 
 export const PARAM_DEF_MAP: Record<ParamKey, ParamDef> = Object.fromEntries(
@@ -255,6 +281,11 @@ export const DEFAULT_PARAMS: ChipParams = {
   microNoise: 1.5,
   microNoiseScale: 0.15,
   thicknessNoise: 0.08,
+  temperLevel: 0,
+  temperSpread: 0.15,
+  temperScale: 25,
+  temperFaceBias: 0.06,
+  temperChart: 'fer',
 };
 
 /**

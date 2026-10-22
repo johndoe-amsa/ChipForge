@@ -1,5 +1,6 @@
 import { GROUP_NAMES, type ChipGrid, type ChipInfo } from './chip';
 import { len3 } from './spine';
+import { FRACTURE_TINT, temperColor, temperFaces, type TemperChart, type TemperFace } from '../temper';
 
 /**
  * Maillage quad indexé prêt pour l'affichage et l'export.
@@ -24,6 +25,10 @@ export interface ChipMesh {
   colliders: Float32Array;
   /** min xyz, max xyz. */
   bounds: Float32Array;
+  /** Couleurs de revenu (sRGB 0–1) par sommet unique, ou null. */
+  colors: Float32Array | null;
+  /** Couleurs de revenu par groupe de faces (ordre GROUP_NAMES), ou null. */
+  temper: { chart: TemperChart; faces: TemperFace[] } | null;
   info: ChipInfo;
 }
 
@@ -301,6 +306,23 @@ export function gridToMesh(grid: ChipGrid): ChipMesh {
     }
   }
 
+  // --- Couleurs de revenu : anneaux, puis intérieur des faces de rupture (presque nues)
+  let colors: Float32Array | null = null;
+  let temper: ChipMesh['temper'] = null;
+  if (grid.temper) {
+    const { chart, level } = grid.temper;
+    colors = new Float32Array(P * 3);
+    for (let k = 0; k < rings * M; k++) temperColor(chart, level[k], colors, k * 3);
+    for (let c = 0; c < 2; c++) {
+      let mean = 0;
+      const ring = c === 0 ? 0 : rings - 1;
+      for (let j = 0; j < M; j++) mean += level[ring * M + j] / M;
+      const idx = c === 0 ? cap0Idx : cap1Idx;
+      for (let g = 0; g < idx.length; g++) if (idx[g] >= rings * M) temperColor(chart, FRACTURE_TINT * mean, colors, idx[g] * 3);
+    }
+    temper = { chart, faces: temperFaces(chart, level, rings, nW, nE) };
+  }
+
   const bounds = new Float32Array([Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity]);
   for (let k = 0; k < P; k++) {
     for (let c = 0; c < 3; c++) {
@@ -321,6 +343,8 @@ export function gridToMesh(grid: ChipGrid): ChipMesh {
     groups: Uint32Array.from(groupRanges),
     colliders: grid.colliders,
     bounds,
+    colors,
+    temper,
     info: grid.info,
   };
 }

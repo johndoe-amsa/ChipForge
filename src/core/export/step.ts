@@ -1,4 +1,7 @@
 import type { ChipGrid } from '../geometry/chip';
+import { GROUP_NAMES } from '../geometry/chip';
+import { temperFaces, type RGB } from '../temper';
+import { BOX_FACES, boxCorners, type Box } from '../bin';
 import { transformPoints, type RigidTransform } from './transform';
 
 /**
@@ -13,15 +16,26 @@ import { transformPoints, type RigidTransform } from './transform';
  * contrôle (approximation B-spline, sans dépassement).
  *
  * Plusieurs copeaux → assemblage (un produit nommé par copeau). Chaque groupe de faces
- * porte une couleur distincte pour faciliter l'affectation de matériaux dans KeyShot.
+ * porte une couleur distincte pour faciliter l'affectation de matériaux dans KeyShot ; avec
+ * les couleurs de revenu, chaque face prend la teinte moyenne de cette face du copeau.
  * Repère : Z vertical (convention CAO), unité : mm.
  */
 
-export interface StepItem {
+export interface ChipStepItem {
   name: string;
   grid: ChipGrid;
   transform: RigidTransform;
 }
+
+/** Objet fait de pavés (bac à copeaux), déjà placé dans le repère de la scène. */
+export interface BoxStepItem {
+  name: string;
+  boxes: Box[];
+}
+
+export type StepItem = ChipStepItem | BoxStepItem;
+
+const BIN_COLOR: RGB = [0.45, 0.47, 0.5];
 
 const FACE_COLORS: Record<string, [number, number, number]> = {
   face_coupe: [0.82, 0.82, 0.82],
@@ -103,6 +117,30 @@ interface Ctx {
   pdCtx: number;
   styles: Record<string, number>;
   styled: number[];
+  /** Styles de couleur créés à la demande (couleurs de revenu), par couleur arrondie. */
+  colorStyles: Map<string, number>;
+}
+
+/** Style de surface d'une couleur (COLOUR_RGB → PRESENTATION_STYLE_ASSIGNMENT). */
+function writeStyle(w: Writer, name: string, [r, g, b]: RGB): number {
+  const col = w.add(`COLOUR_RGB(${str(name)},${real(r)},${real(g)},${real(b)})`);
+  const fac = w.add(`FILL_AREA_STYLE_COLOUR('',#${col})`);
+  const fas = w.add(`FILL_AREA_STYLE('',(#${fac}))`);
+  const ssfa = w.add(`SURFACE_STYLE_FILL_AREA(#${fas})`);
+  const sss = w.add(`SURFACE_SIDE_STYLE('',(#${ssfa}))`);
+  const ssu = w.add(`SURFACE_STYLE_USAGE(.BOTH.,#${sss})`);
+  return w.add(`PRESENTATION_STYLE_ASSIGNMENT((#${ssu}))`);
+}
+
+function colorStyle(c: Ctx, name: string, rgb: RGB): number {
+  const q = rgb.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000) as RGB;
+  const key = `${name}|${q.join(',')}`;
+  let id = c.colorStyles.get(key);
+  if (id === undefined) {
+    id = writeStyle(c.w, name, q);
+    c.colorStyles.set(key, id);
+  }
+  return id;
 }
 
 function writeProduct(c: Ctx, name: string): { pd: number; pds: number } {
@@ -122,12 +160,60 @@ function writeAxis(w: Writer): number {
   return w.add(`AXIS2_PLACEMENT_3D('',#${o},#${z},#${x})`);
 }
 
+/**
+ * Pavé fermé de 6 faces planes (B-splines de degré 1, comme le reste du fichier) ; arêtes
+ * partagées entre faces voisines. Renvoie l'identifiant du MANIFOLD_SOLID_BREP.
+ */
+function writeBox(c: Ctx, name: string, box: Box): number {
+  const w = c.w;
+  const pt = boxCorners(box).map(([x, y, z]) => w.add(`CARTESIAN_POINT('',(${real(x)},${real(-z)},${real(y)}))`));
+  const vx = pt.map((p) => w.add(`VERTEX_POINT('',#${p})`));
+  const edges = new Map<number, number>();
+  const oriented = (a: number, b: number) => {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    let e = edges.get(lo * 8 + hi);
+    if (e === undefined) {
+      const crv = w.add(`B_SPLINE_CURVE_WITH_KNOTS('',1,(#${pt[lo]},#${pt[hi]}),.UNSPECIFIED.,.F.,.F.,(2,2),(0.,1.),.UNSPECIFIED.)`);
+      e = w.add(`EDGE_CURVE('',#${vx[lo]},#${vx[hi]},#${crv},.T.)`);
+      edges.set(lo * 8 + hi, e);
+    }
+    return w.add(`ORIENTED_EDGE('',*,*,#${e},${a === lo ? '.T.' : '.F.'})`);
+  };
+  const style = colorStyle(c, name, BIN_COLOR);
+  const faces = BOX_FACES.map(({ v: [a, b, cc, d] }) => {
+    // u : a → b, v : a → d ; (b − a) × (d − a) est la normale sortante.
+    const surf = w.add(
+      `B_SPLINE_SURFACE_WITH_KNOTS('',1,1,((#${pt[a]},#${pt[d]}),(#${pt[b]},#${pt[cc]})),.UNSPECIFIED.,.F.,.F.,.F.,(2,2),(2,2),(0.,1.),(0.,1.),.UNSPECIFIED.)`,
+    );
+    const loop = w.add(`EDGE_LOOP('',${refs([oriented(a, b), oriented(b, cc), oriented(cc, d), oriented(d, a)])})`);
+    const bound = w.add(`FACE_OUTER_BOUND('',#${loop},.T.)`);
+    const f = w.add(`ADVANCED_FACE(${str(name)},(#${bound}),#${surf},.T.)`);
+    c.styled.push(w.add(`STYLED_ITEM('color',(#${style}),#${f})`));
+    return f;
+  });
+  const shell = w.add(`CLOSED_SHELL('',${refs(faces)})`);
+  return w.add(`MANIFOLD_SOLID_BREP(${str(name)},#${shell})`);
+}
+
+/** Solides d'un élément : un copeau, ou les pavés d'un bac. */
+function writeSolids(c: Ctx, item: StepItem): number[] {
+  return 'grid' in item ? [writeSolid(c, item)] : item.boxes.map((b) => writeBox(c, item.name, b));
+}
+
 /** Écrit le solide d'un copeau ; renvoie l'identifiant du MANIFOLD_SOLID_BREP. */
-function writeSolid(c: Ctx, item: StepItem): number {
+function writeSolid(c: Ctx, item: ChipStepItem): number {
   const w = c.w;
   const { grid } = item;
   const { rings, nW, nE, M, flip } = grid;
   const P = transformPoints(grid.pos, item.transform);
+  // Couleurs de revenu : teinte moyenne de chaque groupe de faces de ce copeau.
+  const tf = grid.temper ? temperFaces(grid.temper.chart, grid.temper.level, rings, nW, nE) : null;
+  const styleOf = (name: string) => {
+    if (!tf) return c.styles[name];
+    const g = GROUP_NAMES.indexOf(name as (typeof GROUP_NAMES)[number]);
+    return colorStyle(c, name, tf[g].rgb);
+  };
   const C0 = transformPoints(grid.cap0, item.transform);
   const C1 = transformPoints(grid.cap1, item.transform);
 
@@ -213,7 +299,7 @@ function writeSolid(c: Ctx, item: StepItem): number {
     const s = outward ? '.T.' : '.F.';
     const bound = w.add(`FACE_OUTER_BOUND('',#${loop},${s})`);
     const f = w.add(`ADVANCED_FACE(${str(name)},(#${bound}),#${surf},${s})`);
-    c.styled.push(w.add(`STYLED_ITEM('color',(#${c.styles[name]}),#${f})`));
+    c.styled.push(w.add(`STYLED_ITEM('color',(#${styleOf(name)}),#${f})`));
     faces.push(f);
   };
 
@@ -309,24 +395,16 @@ export function writeSTEPStream(
 
   // Styles de couleur par groupe de faces
   const styles: Record<string, number> = {};
-  for (const [name, [r, g, b]] of Object.entries(FACE_COLORS)) {
-    const col = w.add(`COLOUR_RGB(${str(name)},${real(r)},${real(g)},${real(b)})`);
-    const fac = w.add(`FILL_AREA_STYLE_COLOUR('',#${col})`);
-    const fas = w.add(`FILL_AREA_STYLE('',(#${fac}))`);
-    const ssfa = w.add(`SURFACE_STYLE_FILL_AREA(#${fas})`);
-    const sss = w.add(`SURFACE_SIDE_STYLE('',(#${ssfa}))`);
-    const ssu = w.add(`SURFACE_STYLE_USAGE(.BOTH.,#${sss})`);
-    styles[name] = w.add(`PRESENTATION_STYLE_ASSIGNMENT((#${ssu}))`);
-  }
+  for (const [name, rgb] of Object.entries(FACE_COLORS)) styles[name] = writeStyle(w, name, rgb);
 
-  const c: Ctx = { w, geomCtx, productCtx, pdCtx, styles, styled: [] };
+  const c: Ctx = { w, geomCtx, productCtx, pdCtx, styles, styled: [], colorStyles: new Map() };
 
   if (count === 1) {
     const it = getItem(0);
     const { pds } = writeProduct(c, it.name);
     const axis = writeAxis(w);
-    const solid = writeSolid(c, it);
-    const rep = w.add(`ADVANCED_BREP_SHAPE_REPRESENTATION(${str(it.name)},(#${axis},#${solid}),#${geomCtx})`);
+    const solids = writeSolids(c, it);
+    const rep = w.add(`ADVANCED_BREP_SHAPE_REPRESENTATION(${str(it.name)},${refs([axis, ...solids])},#${geomCtx})`);
     w.add(`SHAPE_DEFINITION_REPRESENTATION(#${pds},#${rep})`);
   } else {
     const rootName = fileName.replace(/\.(stp|step)$/i, '') || 'tas_copeaux';
@@ -338,8 +416,8 @@ export function writeSTEPStream(
       const it = getItem(i);
       const prod = writeProduct(c, it.name);
       const axis = writeAxis(w);
-      const solid = writeSolid(c, it);
-      const rep = w.add(`ADVANCED_BREP_SHAPE_REPRESENTATION(${str(it.name)},(#${axis},#${solid}),#${geomCtx})`);
+      const solids = writeSolids(c, it);
+      const rep = w.add(`ADVANCED_BREP_SHAPE_REPRESENTATION(${str(it.name)},${refs([axis, ...solids])},#${geomCtx})`);
       w.add(`SHAPE_DEFINITION_REPRESENTATION(#${prod.pds},#${rep})`);
       children.push({ pd: prod.pd, rep, axis, name: it.name });
       childAxes.push(writeAxis(w));

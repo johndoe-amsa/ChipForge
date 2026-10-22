@@ -1,5 +1,6 @@
 import { DEFAULT_PARAMS, sanitizeParams, type ChipParams } from '../params';
 import { Rng, hashSeed } from '../rng';
+import type { Container } from '../bin';
 
 /**
  * Presets : Matière × Procédé × Forme ISO 3685.
@@ -59,6 +60,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 10, lamellaAmp: 3, lamellaIrregularity: 0.5, striationFreq: 8, striationAmp: 0.8,
         wavinessFreq: 0.3, wavinessAmp: 8, segmentFreq: 0, segmentDepth: 0, segmentSharpness: 0.6,
         macroNoise: 0.25, macroNoiseScale: 6, microNoise: 1.2, microNoiseScale: 0.12, thicknessNoise: 0.06,
+        temperChart: 'fer', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -73,6 +75,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 12, lamellaAmp: 5, lamellaIrregularity: 0.6, striationFreq: 10, striationAmp: 1.2,
         wavinessFreq: 0.35, wavinessAmp: 10, segmentFreq: 2, segmentDepth: 0.1, segmentSharpness: 0.5,
         macroNoise: 0.3, macroNoiseScale: 6, microNoise: 1.6, microNoiseScale: 0.12, thicknessNoise: 0.1,
+        temperChart: 'fer', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -87,6 +90,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 6, lamellaAmp: 2, lamellaIrregularity: 0.4, striationFreq: 6, striationAmp: 0.6,
         wavinessFreq: 0.2, wavinessAmp: 5, segmentFreq: 12, segmentDepth: 0.45, segmentSharpness: 0.8,
         macroNoise: 0.2, macroNoiseScale: 8, microNoise: 1, microNoiseScale: 0.1, thicknessNoise: 0.05,
+        temperChart: 'titane', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -101,6 +105,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 14, lamellaAmp: 1.5, lamellaIrregularity: 0.3, striationFreq: 6, striationAmp: 0.5,
         wavinessFreq: 0.4, wavinessAmp: 6, segmentFreq: 4, segmentDepth: 0.15, segmentSharpness: 0.4,
         macroNoise: 0.4, macroNoiseScale: 4, microNoise: 2.5, microNoiseScale: 0.08, thicknessNoise: 0.12,
+        temperChart: 'laiton', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -115,6 +120,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 0, lamellaAmp: 0, lamellaIrregularity: 0.2, striationFreq: 3, striationAmp: 1.5,
         wavinessFreq: 0.4, wavinessAmp: 25, segmentFreq: 0, segmentDepth: 0, segmentSharpness: 0.5,
         macroNoise: 0.35, macroNoiseScale: 10, microNoise: 0.4, microNoiseScale: 0.3, thicknessNoise: 0.05,
+        temperChart: 'aucune', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -129,6 +135,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 8, lamellaAmp: 6, lamellaIrregularity: 0.7, striationFreq: 5, striationAmp: 1.5,
         wavinessFreq: 0.3, wavinessAmp: 12, segmentFreq: 0, segmentDepth: 0, segmentSharpness: 0.5,
         macroNoise: 0.3, macroNoiseScale: 7, microNoise: 2, microNoiseScale: 0.15, thicknessNoise: 0.15,
+        temperChart: 'aluminium', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
@@ -143,13 +150,14 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 10, lamellaAmp: 7, lamellaIrregularity: 0.5, striationFreq: 6, striationAmp: 1,
         wavinessFreq: 0.3, wavinessAmp: 10, segmentFreq: 0, segmentDepth: 0, segmentSharpness: 0.5,
         macroNoise: 0.3, macroNoiseScale: 7, microNoise: 1.2, microNoiseScale: 0.15, thicknessNoise: 0.08,
+        temperChart: 'cuivre', temperLevel: 0,
       } satisfies Partial<ChipParams>),
   },
   {
     id: 'superalliage',
     name: 'Superalliage / trempé',
     grade: 'Inconel 718 / acier > 50 HRC',
-    description: 'Copeau mince et raide, fortement segmenté, bords fissurés.',
+    description: 'Copeau mince et raide, fortement segmenté, bords fissurés ; teinte bleu-pourpre du tournage dur à sec.',
     apply: (p) =>
       Object.assign(p, {
         width: 1, thickness: 0.08, taper: 0.05, camber: 0.02, camberShape: 0.2, edgeThinning: 0.2,
@@ -157,6 +165,7 @@ export const MATERIALS: MaterialPreset[] = [
         lamellaFreq: 4, lamellaAmp: 1, lamellaIrregularity: 0.4, striationFreq: 6, striationAmp: 0.5,
         wavinessFreq: 0.2, wavinessAmp: 4, segmentFreq: 18, segmentDepth: 0.6, segmentSharpness: 0.9,
         macroNoise: 0.15, macroNoiseScale: 8, microNoise: 0.8, microNoiseScale: 0.1, thicknessNoise: 0.05,
+        temperChart: 'fer', temperLevel: 0.62, temperSpread: 0.12,
       } satisfies Partial<ChipParams>),
   },
 ];
@@ -416,9 +425,27 @@ export interface PileSettings {
   /** Rayon de la zone de chute (mm). 0 = automatique. */
   spread: number;
   physics: boolean;
+  /** Réceptacle : chute sur la grille, ou dans un bac à copeaux. */
+  container: Container;
+  /** Dimensions intérieures du bac (mm), 0 = automatique. */
+  binLength: number;
+  binWidth: number;
+  binHeight: number;
+  /** Exporter le bac avec le tas (OBJ et STEP). */
+  exportBin: boolean;
 }
 
-export const DEFAULT_PILE: PileSettings = { count: 40, variability: 0.5, spread: 0, physics: true };
+export const DEFAULT_PILE: PileSettings = {
+  count: 40,
+  variability: 0.5,
+  spread: 0,
+  physics: true,
+  container: 'sol',
+  binLength: 0,
+  binWidth: 0,
+  binHeight: 0,
+  exportBin: false,
+};
 
 /** Paramètres du copeau i d'un tas, dérivés de façon déterministe du preset et de la seed. */
 export function varyParams(base: ChipParams, seed: number, index: number, variability: number): ChipParams {
@@ -444,5 +471,7 @@ export function varyParams(base: ChipParams, seed: number, index: number, variab
   p.tangle = Math.max(0, Math.min(1, base.tangle + r.normal() * 0.15 * v));
   if (base.linkedSegments > 1) p.linkedSegments = Math.max(1, Math.round(base.linkedSegments + r.normal() * 1.2 * v));
   if (r.next() < 0.5 * v && base.burrSide !== 'aucun') p.burrSide = r.pick(['A', 'B', 'deux'] as const);
+  // Chaque copeau a chauffé un peu différemment : teinte propre autour de celle du preset.
+  if (base.temperLevel > 0) p.temperLevel = Math.max(0.02, Math.min(1, base.temperLevel + r.normal() * (0.04 + 0.6 * base.temperSpread) * v));
   return sanitizeParams(p, base);
 }

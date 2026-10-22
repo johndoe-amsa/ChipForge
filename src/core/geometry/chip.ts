@@ -3,6 +3,7 @@ import { Noise } from '../noise';
 import { Rng } from '../rng';
 import { buildSpine, deriveShape, len3, newFrame, sampleSpine, smoothstep, type FrameSample, type ShapeDerived, type Spine } from './spine';
 import { relaxSpine } from './relax';
+import { TemperField, temperActive, type TemperChart } from '../temper';
 
 /**
  * Construction d'un copeau sous forme de grille structurée :
@@ -51,6 +52,8 @@ export interface ChipGrid {
   flip: boolean;
   /** Boîtes de collision le long de la fibre : centre(3) quaternion(4) demi-tailles(3). */
   colliders: Float32Array;
+  /** Couleurs de revenu : niveau de teinte (0–1) par sommet de la grille (rings × M), ou null. */
+  temper: { chart: TemperChart; level: Float32Array } | null;
   info: ChipInfo;
 }
 
@@ -721,6 +724,9 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
   const e = newEdges();
   const eb = newEdges();
 
+  const tf = temperActive(p) ? new TemperField(p, seed, nW, nE) : null;
+  const tLevel = tf ? new Float32Array(rings * M) : null;
+
   for (let i = 0; i < rings; i++) {
     const si = (i / Ns) * L;
     const inZone = brk > 0 && (si < zone || si > L - zone);
@@ -732,6 +738,7 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
       sampleSpine(spine, si, fr);
     }
     for (let j = 0; j < M; j++) {
+      let sv = si;
       if (inZone) {
         const s = si + delta0[j] * (1 - smoothstep(0, zone, si)) - delta1[j] * smoothstep(L - zone, L, si);
         sec.longi(s, true, l);
@@ -739,7 +746,9 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
         sec.edges(l, true, e);
         sec.edges(lb, false, eb);
         sampleSpine(spine, s, fr);
+        sv = s;
       }
+      if (tf && tLevel) tLevel[i * M + j] = tf.level(sv, j);
       sec.point(l, e, j, true, xy, 0);
       sec.point(lb, eb, j, false, xyb, 0);
       const o = (i * M + j) * 3;
@@ -770,7 +779,8 @@ export function buildChipGrid(p: ChipParams, seed: number, q: QualitySettings): 
   const capSec0 = coons(sec0, 0, nW, nE, 2);
   const capSec1 = coons(sec1, 0, nW, nE, 2);
 
-  const partial = { rings, nW, nE, M, pos, base, cap0, cap1, capSec0, capSec1 };
+  const temper = tLevel ? { chart: p.temperChart, level: tLevel } : null;
+  const partial = { rings, nW, nE, M, pos, base, cap0, cap1, capSec0, capSec1, temper };
   const vol = signedVolume(partial);
 
   return {
