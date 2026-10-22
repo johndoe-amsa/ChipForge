@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PARAMS, EXPORT_QUALITY, PREVIEW_QUALITY, type ChipParams } from '../src/core/params';
-import { buildChipGrid } from '../src/core/geometry/chip';
+import { buildChipGrid, type ChipGrid } from '../src/core/geometry/chip';
 import { gridToMesh } from '../src/core/geometry/mesh';
-import { allFinite, checkClosedManifold, meshVolume } from './helpers';
+import { composePreset, varyParams } from '../src/core/presets/presets';
+import { hashSeed } from '../src/core/rng';
+import { allFinite, checkClosedManifold, countFolds, countSelfPenetrations, meshVolume } from './helpers';
 
 const smooth: Partial<ChipParams> = {
   lamellaAmp: 0,
@@ -96,6 +98,68 @@ describe('géométrie du copeau', () => {
     expect(allFinite(m.positions)).toBe(true);
     expect(checkClosedManifold(m).ok).toBe(true);
     expect(m.positions.length / 3).toBeLessThanOrEqual(PREVIEW_QUALITY.maxVertices + 2 * 200 * 30);
+  });
+});
+
+describe('éviter les auto-intersections', () => {
+  const exclusion = (p: ChipParams) => 2.5 * p.width + 1;
+  // Cas du signalement : aluminium, tubulaire enchevêtré (L 350, R 2.08, pas 1.49, enchevêtrement 0.6)
+  const reported = composePreset({ material: 'aluminium', process: 'tournage', form: '2.3' });
+
+  it('le contrôle indépendant détecte bien les traversées quand l’option est désactivée', () => {
+    const g = buildChipGrid({ ...reported, avoidOverlap: false }, 1, PREVIEW_QUALITY);
+    expect(g.info.selfContacts).toBeNull();
+    expect(countSelfPenetrations(g, exclusion(reported))).toBeGreaterThan(0);
+    // … et une pliure franche (anneau qui recule le long de la fibre).
+    const ring = (z: number) => [0, 0, z, 1, 0, z, 1, 1, z, 0, 1, z];
+    const folded = { rings: 4, M: 4, nW: 1, nE: 1, pos: Float64Array.from([...ring(0), ...ring(1), ...ring(0.4), ...ring(2)]) };
+    expect(countFolds(folded as unknown as ChipGrid)).toBeGreaterThan(0);
+  });
+
+  it('supprime toutes les traversées du cas signalé', () => {
+    expect(reported.length).toBe(350);
+    expect(reported.tangle).toBeCloseTo(0.6, 6);
+    const g = buildChipGrid(reported, 1, PREVIEW_QUALITY);
+    expect(g.info.selfContacts!.initial).toBeGreaterThan(0);
+    expect(g.info.selfContacts!.residual).toBe(0);
+    expect(countSelfPenetrations(g, exclusion(reported))).toBe(0);
+    expect(countFolds(g)).toBe(0);
+    expect(checkClosedManifold(gridToMesh(g)).ok).toBe(true);
+  });
+
+  it('supprime les traversées des formes à risque, quels que soient la seed et le procédé', { timeout: 300000 }, () => {
+    const cases = [
+      ['tournage', 'inox', '1.3'],
+      ['tournage', 'acier', '2.1'],
+      ['tournage', 'acier', '2.3'],
+      ['tournage', 'titane', '4.3'],
+      ['tournage', 'cuivre', '5.3'],
+      ['tournage', 'laiton', '6.1'],
+      ['tournage', 'superalliage', '2.3'],
+      ['gorge', 'superalliage', '2.3'],
+      ['percage', 'aluminium', '2.3'],
+    ] as const;
+    for (const [process, material, form] of cases) {
+      const base = composePreset({ material, process, form });
+      for (const seed of [1, 3, 7, 42]) {
+        const p = varyParams(base, seed, 0, 0.5);
+        const g = buildChipGrid(p, hashSeed(seed, 0), PREVIEW_QUALITY);
+        const label = `${process} ${material} ISO ${form} seed ${seed}`;
+        expect(g.info.selfContacts!.residual, label).toBe(0);
+        expect(countSelfPenetrations(g, exclusion(p)), label).toBe(0);
+        // Aucune pliure ajoutée : la fibre s'écarte sans se replier (les liaisons ISO 6.1 sont
+        // des pliures voulues, présentes aussi sans l'option).
+        const off = buildChipGrid({ ...p, avoidOverlap: false }, hashSeed(seed, 0), PREVIEW_QUALITY);
+        const folds0 = countFolds(off);
+        expect(countFolds(g), label).toBeLessThanOrEqual(folds0 + Math.max(2, 0.05 * folds0));
+      }
+    }
+  });
+
+  it('ne modifie pas un copeau qui ne se traverse pas', () => {
+    const p = composePreset({ material: 'acier', process: 'tournage', form: '5.2' });
+    const g = buildChipGrid(p, 1, PREVIEW_QUALITY);
+    expect(g.info.selfContacts).toEqual({ initial: 0, residual: 0 });
   });
 });
 

@@ -40,7 +40,14 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
   avec trapèze, cambrure en arc ou en V, amincissement des bords, arrondi d'arête, bavures et craquelures.
 - **Micro-reliefs** : lamelles de cisaillement, stries de l'outil, ondulation, segmentation en dents de scie, bruit de surface.
 - **Extrémités** (`extremites`) : faces de rupture irrégulières fermées par des carreaux de Coons.
-- **Anti-interpénétration** (option) : le pas ou la croissance est ajusté pour que les spires ne se traversent pas.
+- **Éviter les auto-intersections** (option, active par défaut) : aucune portion du copeau ne traverse une autre, y compris
+  dans les pelotes enchevêtrées.
+  1. *Pendant la croissance*, la pointe anticipe sa trajectoire et glisse sur les portions déjà formées ; pour les hélices,
+     le tube entier contourne ses passages précédents. La flexion reste bornée (aucune pliure de la section).
+  2. *Relaxation finale* des contacts restants : déplacement lisse (B-spline) de la fibre, quasi inextensible, à courbure
+     ajoutée bornée, jusqu'à ce qu'aucun pavé englobant les sections réellement maillées n'en recouvre un autre.
+  Le résultat est contrôlé dans l'aperçu (statistique « Auto-intersections ») et, dans les tests, par une vérification
+  indépendante sur le maillage final (aucun sommet d'une portion à l'intérieur d'une autre, aucune pliure ajoutée).
 
 ## Exports
 
@@ -112,7 +119,9 @@ src/
   core/                 cœur pur (sans DOM), partagé par l'interface, les workers et les tests
     params.ts           paramètres, bornes, métadonnées d'interface, validation
     rng.ts, noise.ts    aléatoire déterministe et bruits (gradient / valeur)
-    geometry/spine.ts   fibre : intégration courbure/torsion, errance, confinement des pelotes
+    geometry/spine.ts   fibre : intégration courbure/torsion, errance, confinement des pelotes, évitement en croissance
+    geometry/contact.ts contacts entre portions du copeau : pavés orientés (axes séparateurs), grilles spatiales
+    geometry/relax.ts   relaxation finale des auto-intersections (déplacement B-spline lisse et inextensible)
     geometry/chip.ts    section, micro-reliefs, grille structurée, carreaux de Coons, collisions
     geometry/mesh.ts    maillage quad : îlots UV, normales, groupes
     presets/presets.ts  ISO 3685, matières, procédés, raccourcis, variabilité du tas

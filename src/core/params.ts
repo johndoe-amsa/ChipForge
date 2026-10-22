@@ -141,7 +141,7 @@ export const PARAM_DEFS: ParamDef[] = [
   num('linkedSegments', 'Segments liés', 'macro', undefined, [1, 8, 1], [1, 32], "Nombre d'arcs encore attachés (ISO 6.1). 1 = copeau d'un seul tenant.", { integer: true }),
   num('linkAngle', 'Angle aux liaisons', 'macro', '°', [0, 180, 1], [0, 360], 'Pliure en sens inverse entre deux arcs liés.', {}),
   num('tangle', 'Enchevêtrement', 'macro', undefined, [0, 1, 0.01], [0, 1], 'Pelote désordonnée et confinée (copeaux enchevêtrés ISO x.3).', {}),
-  { kind: 'bool', key: 'avoidOverlap', label: 'Éviter les auto-intersections', section: 'macro', hint: 'Ajuste automatiquement le pas ou la croissance pour que les spires ne se traversent pas.' },
+  { kind: 'bool', key: 'avoidOverlap', label: 'Éviter les auto-intersections', section: 'macro', hint: "Écarte automatiquement les parties du copeau qui se traverseraient (spires, pelotes enchevêtrées, liaisons) en conservant sa longueur et son allure." },
   // --- Section
   num('width', 'Largeur (w)', 'section', 'mm', [0.1, 5, 0.01], [0.02, 50], 'Largeur du copeau (≈ profondeur de passe / largeur de plaquette).', {}),
   num('thickness', 'Épaisseur moyenne (e)', 'section', 'mm', [0.01, 0.5, 0.001], [0.005, 5], 'Épaisseur du copeau (≈ avance × taux de compression).', {}),

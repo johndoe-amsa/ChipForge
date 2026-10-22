@@ -259,6 +259,7 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     verts: h('span', { class: 'cf-stat-v' }),
     time: h('span', { class: 'cf-stat-v' }),
     micro: h('span', { class: 'cf-stat-v' }),
+    contacts: h('span', { class: 'cf-stat-v' }),
   };
   const stat = (k: string, v: HTMLElement, hint: string) => h('div', { class: 'cf-stat', title: hint }, [h('span', { class: 'cf-stat-k', text: k }), v]);
   const statsSec = section('Statistiques (aperçu)', true, [
@@ -269,6 +270,7 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
       stat('Sommets', statVals.verts, 'Sommets uniques (soudés)'),
       stat('Génération', statVals.time, 'Temps de calcul du dernier aperçu'),
       stat('Micro-reliefs', statVals.micro, "Part des micro-reliefs lissée faute de résolution dans l'aperçu"),
+      stat('Auto-intersections', statVals.contacts, 'Zones où le copeau se traverserait lui-même, après résolution (option « Éviter les auto-intersections »)'),
     ]),
     h('p', { class: 'cf-hint', text: "L'export recalcule la géométrie à sa propre résolution (plus fine)." }),
   ]);
@@ -352,6 +354,18 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     const att = app.meshes.length ? app.meshes.reduce((a, m) => a + m.info.microAttenuation, 0) / app.meshes.length : 0;
     statVals.micro.textContent = att < 0.02 ? 'complets' : `lissés à ${Math.round(att * 100)} %`;
     statVals.micro.classList.toggle('text-amber-300', att >= 0.02);
+    const contacts = app.meshes.map((m) => m.info.selfContacts);
+    const unchecked = contacts.some((c) => c === null);
+    const residual = contacts.reduce((a, c) => a + (c?.residual ?? 0), 0);
+    const resolved = contacts.reduce((a, c) => a + (c ? c.initial - c.residual : 0), 0);
+    statVals.contacts.textContent = unchecked
+      ? 'non contrôlées'
+      : residual > 0
+        ? `${formatCount(residual)} restante(s)`
+        : resolved > 0
+          ? `aucune (${formatCount(resolved)} corrigée(s))`
+          : 'aucune';
+    statVals.contacts.classList.toggle('text-amber-300', unchecked || residual > 0);
     unit.refresh();
     uvMode.refresh();
     uvScale.refresh();
