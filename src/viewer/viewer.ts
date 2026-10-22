@@ -4,6 +4,8 @@ import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import type { ChipMesh } from '../core/geometry/mesh';
 import type { RigidTransform } from '../core/export/transform';
 import { createMatcap, createUvChecker, MATCAPS } from './textures';
+import { temperBase } from '../core/temper';
+import { binBoxes, type BinGeometry } from '../core/bin';
 
 export type UvPreview = { mode: 'reel' | 'normalise'; scaleMM: number };
 
@@ -21,11 +23,17 @@ export class Viewer {
   readonly controls: OrbitControls;
   private readonly helper: ViewHelper;
   private readonly root = new THREE.Group();
+  /** Bac à copeaux (mode tas) : parois translucides et arêtes. */
+  private readonly binGroup = new THREE.Group();
+  private readonly binMaterial: THREE.MeshMatcapMaterial;
+  private readonly binEdgeMaterial = new THREE.LineBasicMaterial({ color: 0xaab3c2, transparent: true, opacity: 0.55, depthWrite: false });
   private readonly gridGroup = new THREE.Group();
   private readonly axes: THREE.AxesHelper;
   private chips: ChipObject[] = [];
   private readonly matcaps = new Map<string, THREE.Texture>();
   private readonly material: THREE.MeshMatcapMaterial;
+  /** Même ombrage, teinté par les couleurs de revenu (couleurs de sommets). */
+  private readonly colorMaterial: THREE.MeshMatcapMaterial;
   private readonly checker: THREE.Texture;
   private readonly wireMaterial = new THREE.LineBasicMaterial({ color: 0x0b0d10, transparent: true, opacity: 0.45, depthWrite: false });
   private wireframe = false;
@@ -69,11 +77,20 @@ export class Viewer {
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
     });
+    this.colorMaterial = this.material.clone();
+    this.colorMaterial.vertexColors = true;
+    this.binMaterial = new THREE.MeshMatcapMaterial({
+      matcap: this.matcaps.get('gris') ?? this.matcaps.get('argile')!,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
 
     this.axes = new THREE.AxesHelper(10);
     (this.axes.material as THREE.Material).depthTest = false;
     this.axes.renderOrder = 2;
-    this.scene.add(this.gridGroup, this.axes, this.root);
+    this.scene.add(this.gridGroup, this.axes, this.root, this.binGroup);
     this.buildGrid(20);
 
     const ro = new ResizeObserver(() => this.resize());
@@ -119,7 +136,7 @@ export class Viewer {
     this.root.clear();
     this.chips = meshes.map((m, i) => {
       const geo = buildGeometry(m, this.uv);
-      const mesh = new THREE.Mesh(geo, this.material);
+      const mesh = new THREE.Mesh(geo, m.colors ? this.colorMaterial : this.material);
       mesh.matrixAutoUpdate = false;
       const obj: ChipObject = { mesh, source: m };
       if (this.wireframe) this.attachWire(obj);
@@ -127,6 +144,24 @@ export class Viewer {
       this.applyTransform(obj, transforms[i]);
       return obj;
     });
+    this.needsRender = true;
+  }
+
+  /** Affiche (ou retire avec null) le bac à copeaux. */
+  setBin(bin: BinGeometry | null): void {
+    for (const ch of this.binGroup.children) (ch as THREE.Mesh | THREE.LineSegments).geometry.dispose();
+    this.binGroup.clear();
+    if (bin) {
+      for (const box of binBoxes(bin)) {
+        const geo = new THREE.BoxGeometry(2 * box.half[0], 2 * box.half[1], 2 * box.half[2]);
+        const mesh = new THREE.Mesh(geo, this.binMaterial);
+        mesh.position.set(...box.center);
+        mesh.renderOrder = 3;
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), this.binEdgeMaterial);
+        edges.position.copy(mesh.position);
+        this.binGroup.add(mesh, edges);
+      }
+    }
     this.needsRender = true;
   }
 
@@ -152,8 +187,10 @@ export class Viewer {
   setMatcap(id: string): void {
     const tex = this.matcaps.get(id);
     if (!tex) return;
-    this.material.matcap = tex;
-    this.material.needsUpdate = true;
+    for (const mat of [this.material, this.colorMaterial]) {
+      mat.matcap = tex;
+      mat.needsUpdate = true;
+    }
     this.needsRender = true;
   }
 
@@ -168,8 +205,10 @@ export class Viewer {
 
   setUvChecker(on: boolean): void {
     this.uvChecker = on;
-    this.material.map = on ? this.checker : null;
-    this.material.needsUpdate = true;
+    for (const mat of [this.material, this.colorMaterial]) {
+      mat.map = on ? this.checker : null;
+      mat.needsUpdate = true;
+    }
     this.needsRender = true;
   }
 
@@ -203,6 +242,7 @@ export class Viewer {
       const b = c.mesh.geometry.boundingBox!.clone().applyMatrix4(c.mesh.matrix);
       box.union(b);
     }
+    if (this.binGroup.children.length) box.union(new THREE.Box3().setFromObject(this.binGroup));
     return box;
   }
 
@@ -317,9 +357,26 @@ function buildGeometry(m: ChipMesh, uv: UvPreview): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
   g.setAttribute('uv', new THREE.BufferAttribute(buildUv(m, uv), 2));
+  if (m.colors && m.temper) g.setAttribute('color', new THREE.BufferAttribute(buildTint(m, m.colors, m.temper.chart), 3));
   g.setIndex(new THREE.BufferAttribute(index, 1));
   g.computeBoundingSphere();
   return g;
+}
+
+/**
+ * Teinte d'aperçu : couleur de revenu rapportée à celle du métal nu (en linéaire), pour que le
+ * MatCap garde son aspect là où le copeau n'est pas oxydé.
+ */
+function buildTint(m: ChipMesh, colors: Float32Array, chart: Parameters<typeof temperBase>[0]): Float32Array {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const base = temperBase(chart).map(lin);
+  const V = m.vPos.length;
+  const out = new Float32Array(V * 3);
+  for (let v = 0; v < V; v++) {
+    const p = m.vPos[v] * 3;
+    for (let c = 0; c < 3; c++) out[v * 3 + c] = Math.min(1.25, lin(colors[p + c]) / Math.max(1e-3, base[c]));
+  }
+  return out;
 }
 
 /** Arêtes des quads (et non des triangles) pour un filaire lisible. */

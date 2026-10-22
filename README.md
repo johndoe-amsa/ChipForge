@@ -5,9 +5,10 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 
 - **Typologie ISO 3685** complète (8 familles, 17 variantes), classées *bon / acceptable / mauvais*, avec les raccourcis atelier (virgule, aiguille, arc, hélice courte, ruban, enchevêtré, longue hélice, rondelles imbriquées).
 - **Presets Matière × Procédé** : acier, inox, titane, laiton, plastique, aluminium, cuivre, superalliage/trempé × tournage/décolletage, gorge/tronçonnage, fraisage, perçage.
-- **46 paramètres** (curseurs + saisie numérique) : macro-géométrie, section, bords, profil longitudinal, micro-reliefs, bruit.
-- **Mode tas** : jusqu'à 200 copeaux variés autour du preset, chute physique réaliste et déterministe.
-- **Exports** : OBJ (+ MTL, archive .zip) et **STEP AP214 en B-Rep NURBS**.
+- **49 paramètres** (curseurs + saisie numérique) : macro-géométrie, section, bords, profil longitudinal, micro-reliefs, bruit, couleurs de revenu.
+- **Couleurs de revenu** : teintes d'oxydation (paille, or, bronze, pourpre, bleu…) variant le long du copeau, d'une face à l'autre et d'un copeau à l'autre.
+- **Mode tas** : jusqu'à 200 copeaux variés autour du preset, chute physique réaliste et déterministe, sur la grille ou dans un **bac à copeaux**.
+- **Exports** : OBJ (+ MTL, archive .zip) et **STEP AP214 en B-Rep NURBS**, couleurs de revenu et bac compris.
 
 ---
 
@@ -18,7 +19,7 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 | Panneau gauche | Presets (matière, procédé, forme ISO, raccourcis, presets personnels JSON) puis paramètres en accordéons. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset. |
 | Centre | Vue 3D : rotation (clic gauche), panoramique (clic droit), zoom (molette). Barre d'outils : recadrer, grille, axes, filaire, damier UV, MatCap, qualité d'aperçu *Rapide / Détaillé*. |
 | Haut | Mode *Copeau unique / Tas*, **seed** (🎲 = nouvelle variation), export rapide OBJ / STEP. |
-| Panneau droit | Réglages du tas, statistiques (quads, triangles, sommets), options d'export. |
+| Panneau droit | Réglages du tas (dont réceptacle : grille ou bac), statistiques (quads, triangles, sommets), options d'export. |
 
 Raccourcis clavier : `R` nouvelle seed · `F` recadrer · `W` filaire · `U` damier UV · `Échap` ferme les tiroirs (tablette).
 
@@ -49,6 +50,19 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
   Le résultat est contrôlé dans l'aperçu (statistique « Auto-intersections ») et, dans les tests, par une vérification
   indépendante sur le maillage final (aucun sommet d'une portion à l'intérieur d'une autre, aucune pliure ajoutée).
 
+- **Couleurs de revenu** (section du même nom) : un copeau échauffé par la coupe se couvre d'une fine couche d'oxyde dont
+  la couleur dépend de la température atteinte. Nuanciers par famille d'oxydes (aciers / inox / superalliages, titane,
+  cuivre, laiton, aluminium), choisie par le preset de matière. La teinte varie lentement le long de la fibre, la face de
+  coupe (frottée sur l'outil) est en avance sur la face libre, et les faces de rupture, cassées à froid, restent presque
+  nues. En mode tas, chaque copeau a sa propre teinte. Le preset *Superalliage / trempé* est bleui par défaut (tournage
+  dur à sec) ; pour les autres matières, monter « Teinte de revenu » au-dessus de 0.
+
+## Mode tas et bac à copeaux
+
+Les copeaux tombent en monticule sur la grille ou, avec *Réceptacle : Dans un bac*, dans un bac rectangulaire ouvert
+(fond + 4 parois). Ses dimensions intérieures sont automatiques (taille et nombre de copeaux) ou saisies en mm.
+*Exporter le bac* l'ajoute aux fichiers (objet / pièce `bac`, à sa place sous le tas).
+
 ## Exports
 
 ### OBJ (archive `.zip` = `.obj` + `.mtl`)
@@ -58,6 +72,13 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
 - Un objet `o copeau_###` par copeau ; 4 groupes de faces avec `usemtl face_coupe | face_libre | flancs | extremites`.
   Il suffit d'assigner un matériau par groupe dans Blender ou KeyShot.
 - Unité **mm** (défaut) ou **m** (taille réelle à l'import Blender). Axe vertical **+Y** (import Blender par défaut).
+- **Couleurs de revenu** :
+  - couleurs de sommets en blocs `#MRGB` (format ZBrush, sRGB). Blender (testé avec la 4.2) les importe dans l'attribut
+    **« Color »** : nœud *Color Attribute* → *Base Color*, avec *Metallic* = 1. Pour tout autre logiciel ce sont de simples
+    commentaires, et les lignes `v` restent standard (x y z) ;
+  - un matériau MTL par groupe de faces et par teinte (`face_coupe_fer_bleu`, …), `Kd` = couleur de la teinte en sRGB :
+    une couleur par face et par copeau dans les logiciels qui ne lisent pas les couleurs de sommets.
+- **Bac** (si exporté) : objet `bac`, 5 pavés (fond et parois), normales franches, UV par face, matériau `bac`.
 
 ### STEP (`.stp`) — solution retenue
 Le STEP est écrit par un **exporteur maison en TypeScript, sans dépendance** (aucun WebAssembly lourd à télécharger).
@@ -71,11 +92,15 @@ Les surfaces voisines partagent exactement leurs pôles de bord et leurs nœuds,
 (`B_SPLINE_CURVE_WITH_KNOTS`) sont rigoureusement communes et le solide est étanche.
 Un tas est écrit comme un **assemblage** (un produit nommé par copeau).
 Chaque groupe de faces porte une **couleur distincte**, ce qui permet de séparer les matériaux dans KeyShot.
+Avec les **couleurs de revenu**, chaque face prend la teinte moyenne de cette face du copeau (couleur sRGB par face et
+par copeau, lue par les lecteurs STEP qui gèrent les couleurs, dont OpenCascade). Le **bac** exporté est une pièce `bac`
+de l'assemblage (5 solides plans fermés).
 Unité mm, axe vertical **Z** (convention CAO).
 
 La validité est vérifiée automatiquement en CI : chaque fichier STEP généré est **relu par OpenCascade**
 (`occt-import-js`, dépendance de test uniquement, jamais livrée au navigateur). Le test contrôle succès de lecture,
-6 faces par copeau, orientation (volume positif) et écart de volume < 3 % avec le maillage.
+6 faces par copeau, orientation (volume positif) et écart de volume < 3 % avec le maillage, couleurs de revenu par face,
+volume du bac.
 
 > Le niveau *Fin* intègre les micro-reliefs dans les NURBS : fichiers nettement plus lourds.
 > Pour le rendu, *Léger / Standard* + textures de relief dans KeyShot donnent souvent le meilleur compromis.
@@ -122,6 +147,8 @@ src/
     geometry/spine.ts   fibre : intégration courbure/torsion, errance, confinement des pelotes, évitement en croissance
     geometry/contact.ts contacts entre portions du copeau : pavés orientés (axes séparateurs), grilles spatiales
     geometry/relax.ts   relaxation finale des auto-intersections (déplacement B-spline lisse et inextensible)
+    temper.ts           couleurs de revenu : nuanciers d'oxydes, champ de teinte sur le copeau
+    bin.ts              bac à copeaux du mode tas (dimensions, pavés partagés physique / aperçu / export)
     geometry/chip.ts    section, micro-reliefs, grille structurée, carreaux de Coons, collisions
     geometry/mesh.ts    maillage quad : îlots UV, normales, groupes
     presets/presets.ts  ISO 3685, matières, procédés, raccourcis, variabilité du tas

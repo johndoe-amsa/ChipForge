@@ -234,7 +234,7 @@ export function buildLeftPanel(app: App, root: HTMLElement): void {
 export function buildRightPanel(app: App, root: HTMLElement): void {
   // --- Tas
   const pileIntro = h('div', { class: 'cf-hint' }, [
-    h('p', { text: 'Génère un lot de copeaux dispersés autour du preset courant, puis les fait tomber sur la grille (simulation physique).' }),
+    h('p', { text: 'Génère un lot de copeaux dispersés autour du preset courant, puis les fait tomber sur la grille ou dans un bac à copeaux (simulation physique).' }),
   ]);
   const toPile = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-2', attrs: { type: 'button' } }, [icon('layers'), h('span', { text: 'Passer en mode tas' })]);
   toPile.addEventListener('click', () => app.setMode('tas'));
@@ -245,9 +245,29 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
   const variab = numberControl(defVar, () => Math.round(app.state.pile.variability * 100), (v) => app.setPile({ variability: Math.min(100, Math.max(0, v)) / 100 }), () => false, () => app.setPile({ variability: 0.5 }), 'pile-variability');
   const spread = numberControl(defSpread, () => app.state.pile.spread, (v) => app.setPile({ spread: Math.min(2000, Math.max(0, v)) }), () => false, () => app.setPile({ spread: 0 }), 'pile-spread');
   const physics = toggleControl('Simulation physique', 'Chute réaliste sans interpénétration (sinon dispersion simple sur la grille).', () => app.state.pile.physics, (v) => app.setPile({ physics: v }));
+  // --- Bac à copeaux
+  const container = segmented(
+    [
+      { value: 'sol', label: 'Sur la grille', title: 'Les copeaux tombent en monticule sur la grille' },
+      { value: 'bac', label: 'Dans un bac', title: 'Les copeaux tombent dans un bac à copeaux ouvert (parois et fond)' },
+    ],
+    () => app.state.pile.container,
+    (v) => app.setPile({ container: v }),
+  );
+  const binDef = (label: string, hint: string): NumberDef => ({ ...defCount, label, hint, unit: 'mm', min: 0, max: 300, step: 1, hardMin: 0, hardMax: 2000, integer: false });
+  const binNum = (key: 'binLength' | 'binWidth' | 'binHeight', label: string, hint: string) =>
+    numberControl(binDef(label, hint), () => app.state.pile[key], (v) => app.setPile({ [key]: Math.min(2000, Math.max(0, v)) }), () => app.state.pile[key] > 0, () => app.setPile({ [key]: 0 }), `pile-${key}`);
+  const binL = binNum('binLength', 'Longueur intérieure', 'Longueur du bac (0 = automatique, selon la taille et le nombre de copeaux).');
+  const binW = binNum('binWidth', 'Largeur intérieure', 'Largeur du bac (0 = automatique).');
+  const binH = binNum('binHeight', 'Hauteur des parois', 'Hauteur intérieure du bac (0 = automatique).');
+  const binInfo = h('p', { class: 'cf-hint' });
+  const exportBin = toggleControl('Exporter le bac', 'Ajoute le bac (objet « bac ») aux exports OBJ et STEP, à sa place sous le tas.', () => app.state.pile.exportBin, (v) => app.setPile({ exportBin: v }));
+  const binBody = h('div', {}, [binL.el, binW.el, binH.el, binInfo, exportBin.el]);
+  const spreadWrap = h('div', {}, [spread.el]);
   const rerun = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-1', title: 'Nouvelle seed et nouvelle chute', attrs: { type: 'button' } }, [icon('play'), h('span', { text: 'Nouvelle chute' })]);
   rerun.addEventListener('click', () => app.rerollSeed());
-  const pileBody = h('div', {}, [count.el, variab.el, spread.el, physics.el, rerun]);
+  const pileField = (label: string, el: HTMLElement) => h('div', { class: 'cf-field' }, [h('div', { class: 'cf-label', text: label }), el]);
+  const pileBody = h('div', {}, [count.el, variab.el, pileField('Réceptacle', container.el), spreadWrap, binBody, physics.el, rerun]);
   const pileOff = h('div', {}, [pileIntro, toPile]);
   const pileSec = section('Mode tas', true, [pileOff, pileBody], 'Lot de copeaux et dispersion contrôlée');
 
@@ -331,6 +351,7 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     h('ul', { class: 'cf-notes' }, [
       h('li', { text: 'OBJ : quads, UV, normales lisses, un objet par copeau, groupes face_coupe / face_libre / flancs / extremites + fichier MTL. Axe vertical Y.' }),
       h('li', { text: 'STEP AP214 : solides B-Rep NURBS fermés (6 faces par copeau), assemblage nommé pour un tas, couleur par groupe de faces. Millimètres, axe vertical Z.' }),
+      h('li', { text: 'Couleurs de revenu : couleurs de sommets dans l’OBJ (blocs #MRGB, lus par Blender : attribut « Color »), un matériau MTL par teinte, et la teinte moyenne de chaque face dans le STEP.' }),
       h('li', { text: 'Tout est calculé dans votre navigateur : aucune donnée ne quitte votre poste.' }),
     ]),
   ]);
@@ -345,6 +366,16 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     variab.refresh();
     spread.refresh();
     physics.refresh();
+    container.refresh();
+    const inBin = app.state.pile.container === 'bac';
+    spreadWrap.hidden = inBin;
+    binBody.hidden = !inBin;
+    binL.refresh();
+    binW.refresh();
+    binH.refresh();
+    exportBin.refresh();
+    const b = app.bin;
+    binInfo.textContent = b ? `Bac : ${b.length.toFixed(0)} × ${b.width.toFixed(0)} × ${b.height.toFixed(0)} mm (intérieur), parois de ${b.wall.toFixed(1)} mm.` : '';
     const st = app.viewer.stats();
     statVals.chips.textContent = formatCount(st.chips);
     statVals.quads.textContent = formatCount(st.quads);
