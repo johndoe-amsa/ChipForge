@@ -76,20 +76,6 @@ export function gridToMesh(grid: ChipGrid): ChipMesh {
   const cap0Idx = capPosIndex(0);
   const cap1Idx = capPosIndex(1);
 
-  // --- Coordonnée U : longueur cumulée le long de chaque colonne (géométrie de base)
-  const uCol = new Float64Array(rings * M);
-  let uMax = 0;
-  for (let j = 0; j < M; j++) {
-    let acc = 0;
-    for (let i = 1; i < rings; i++) {
-      const a = ((i - 1) * M + j) * 3;
-      const b = (i * M + j) * 3;
-      acc += len3(base[b] - base[a], base[b + 1] - base[a + 1], base[b + 2] - base[a + 2]);
-      uCol[i * M + j] = acc;
-    }
-    uMax = Math.max(uMax, acc);
-  }
-
   // --- Îlots latéraux : [premier j, nombre de segments]
   const islands = [
     { key: 'coupe' as const, j0: 0, n: nW },
@@ -97,6 +83,26 @@ export function gridToMesh(grid: ChipGrid): ChipMesh {
     { key: 'flancB' as const, j0: nW, n: nE },
     { key: 'flancA' as const, j0: 2 * nW + nE, n: nE },
   ];
+  // --- Coordonnée U : longueur le long de la ligne médiane de chaque îlot (géométrie de base),
+  // commune à tous les sommets d'un même anneau. Mesurer chaque colonne séparément cumulerait
+  // l'écart entre bord intérieur et bord extérieur des virages et cisaillerait la texture.
+  let uMax = 0;
+  const islandU = islands.map((isl) => {
+    const u = new Float64Array(rings);
+    for (let i = 1; i < rings; i++) {
+      let step = 0;
+      for (let c = 0; c <= isl.n; c++) {
+        const j = (isl.j0 + c) % M;
+        const a = ((i - 1) * M + j) * 3;
+        const b = (i * M + j) * 3;
+        step += len3(base[b] - base[a], base[b + 1] - base[a + 1], base[b + 2] - base[a + 2]);
+      }
+      u[i] = u[i - 1] + step / (isl.n + 1);
+    }
+    uMax = Math.max(uMax, u[rings - 1]);
+    return u;
+  });
+
   // Longueur de périmètre de chaque îlot, par anneau
   const islandV = islands.map((isl) => {
     const v = new Float64Array(rings * (isl.n + 1));
@@ -170,7 +176,7 @@ export function gridToMesh(grid: ChipGrid): ChipMesh {
         const pIdx = i * M + j;
         vPos[vi] = pIdx;
         vNrm[vi] = pIdx;
-        const u = uCol[pIdx];
+        const u = islandU[k][i];
         const vv = v[i * (isl.n + 1) + c];
         uvMM[vi * 2] = u;
         uvMM[vi * 2 + 1] = islandOffset[k] + vv;
