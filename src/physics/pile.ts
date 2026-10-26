@@ -1,17 +1,20 @@
 import type { ChipMesh } from '../core/geometry/mesh';
 import type { RigidTransform } from '../core/export/transform';
 import { Rng, hashSeed } from '../core/rng';
+import { binBoxes, type BinGeometry } from '../core/bin';
 
 /**
- * Chute physique d'un lot de copeaux sur un plan (Rapier, WebAssembly chargé à la demande).
+ * Chute physique d'un lot de copeaux sur un plan ou dans un bac (Rapier, WebAssembly chargé à la demande).
  * Chaque copeau est un corps rigide composé de boîtes minces le long de sa fibre.
  * Pas de temps fixe et nombre de pas indépendant de l'affichage : même seed → même tas.
  */
 
 export interface PileOptions {
   seed: number;
-  /** Rayon de la zone de chute (mm) ; 0 = automatique. */
+  /** Rayon de la zone de chute (mm) ; 0 = automatique. Ignoré avec un bac. */
   spread: number;
+  /** Bac à copeaux (parois fixes), ou null pour une chute sur la grille. */
+  bin?: BinGeometry | null;
   onFrame?: (transforms: RigidTransform[], progress: number) => void;
   signal?: { cancelled: boolean };
 }
@@ -28,25 +31,43 @@ async function loadRapier(): Promise<RapierModule> {
   return rapierPromise;
 }
 
-function chipRadius(m: ChipMesh): number {
+export function chipRadius(m: ChipMesh): number {
   const b = m.bounds;
   let r = 0;
   for (const x of [b[0], b[3]]) for (const y of [b[1], b[4]]) for (const z of [b[2], b[5]]) r = Math.max(r, Math.hypot(x, y, z));
   return Math.max(r, 1e-3);
 }
 
+/**
+ * Point de chute dans le disque de rayon R (les copeaux forment un monticule) ; avec un bac,
+ * ramené à l'intérieur du fond (marge r aux parois). La suite aléatoire ne dépend pas du
+ * réceptacle.
+ */
+function dropPoint(rng: Rng, R: number, bin: BinGeometry | null | undefined, r: number): [number, number] {
+  const a = rng.next() * Math.PI * 2;
+  const d = Math.sqrt(rng.next()) * R;
+  let x = Math.cos(a) * d;
+  let z = Math.sin(a) * d;
+  if (bin) {
+    const ax = Math.max(0, bin.length / 2 - r);
+    const az = Math.max(0, bin.width / 2 - r);
+    x = Math.max(-ax, Math.min(ax, x));
+    z = Math.max(-az, Math.min(az, z));
+  }
+  return [x, z];
+}
+
 /** Dispersion sans physique : copeaux posés à plat, orientations aléatoires autour de Y. */
-export function scatterPile(meshes: ChipMesh[], seed: number, spread: number): RigidTransform[] {
+export function scatterPile(meshes: ChipMesh[], seed: number, spread: number, bin?: BinGeometry | null): RigidTransform[] {
   const rng = new Rng(hashSeed(seed, 'scatter'));
   const radii = meshes.map(chipRadius);
   const mean = radii.reduce((a, b) => a + b, 0) / Math.max(1, radii.length);
   const R = spread > 0 ? spread : mean * Math.sqrt(meshes.length) * 1.1;
-  return meshes.map((m) => {
-    const a = rng.next() * Math.PI * 2;
-    const d = Math.sqrt(rng.next()) * R;
+  return meshes.map((m, i) => {
+    const [x, z] = dropPoint(rng, R, bin, radii[i]);
     const ang = rng.next() * Math.PI * 2;
     const q: [number, number, number, number] = [0, Math.sin(ang / 2), 0, Math.cos(ang / 2)];
-    return { q, t: [Math.cos(a) * d, -m.bounds[1], Math.sin(a) * d] };
+    return { q, t: [x, -m.bounds[1], z] };
   });
 }
 
@@ -67,18 +88,32 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
 
   const ground = world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(0, -0.5, 0));
   world.createCollider(R.ColliderDesc.cuboid(500, 0.5, 500).setFriction(0.8), ground);
+  if (opt.bin) {
+    // Parois du bac (le fond est le sol). Épaisseur portée à 0,1 unité au moins pour la
+    // stabilité du solveur, sans déplacer la face intérieure.
+    const walls = world.createRigidBody(R.RigidBodyDesc.fixed());
+    for (const box of binBoxes(opt.bin).slice(1)) {
+      const half = box.half.map((h) => h * k) as [number, number, number];
+      const c = box.center.map((v) => v * k) as [number, number, number];
+      for (const a of [0, 2]) {
+        if (box.half[a] !== opt.bin.wall / 2) continue;
+        const grow = Math.max(0, 0.05 - half[a]);
+        half[a] += grow;
+        c[a] += Math.sign(c[a]) * grow;
+      }
+      world.createCollider(R.ColliderDesc.cuboid(...half).setTranslation(...c).setFriction(0.6), walls);
+    }
+  }
 
   // Placement initial sans recouvrement : empilement en colonne dans un disque.
   const meanR = radii.reduce((a, b) => a + b, 0) / Math.max(1, n);
   // Zone de chute étroite par défaut : les copeaux s'empilent en monticule.
   const spreadN = opt.spread > 0 ? opt.spread * k : Math.max(0.8, meanR * k * Math.sqrt(n) * 0.38);
+  const binN = opt.bin ? { ...opt.bin, length: opt.bin.length * k, width: opt.bin.width * k } : null;
   const placed: { x: number; y: number; z: number; r: number }[] = [];
   const bodies = meshes.map((m, i) => {
     const r = radii[i] * k;
-    const a = rng.next() * Math.PI * 2;
-    const d = Math.sqrt(rng.next()) * spreadN;
-    const x = Math.cos(a) * d;
-    const z = Math.sin(a) * d;
+    const [x, z] = dropPoint(rng, spreadN, binN, r);
     let y = r + 0.05;
     for (const p of placed) {
       if (Math.hypot(p.x - x, p.z - z) < p.r + r) y = Math.max(y, p.y + p.r + r + 0.02);

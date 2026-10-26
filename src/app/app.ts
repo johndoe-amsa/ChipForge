@@ -17,7 +17,8 @@ import {
 import { previewWorker, exportWorker } from '../worker/client';
 import type { ChipSpec } from '../worker/protocol';
 import { Viewer } from '../viewer/viewer';
-import { scatterPile, simulatePile } from '../physics/pile';
+import { chipRadius, scatterPile, simulatePile } from '../physics/pile';
+import { binGeometry, type BinGeometry } from '../core/bin';
 import { meshExportQuality, previewQuality, stepExportQuality, type MeshDetail, type PreviewTier, type StepDetail } from './quality';
 import { parsePreset, serializePreset } from './presetFile';
 import { downloadBytes, formatBytes, formatCount } from '../ui/dom';
@@ -75,6 +76,8 @@ export class App {
   readonly viewer: Viewer;
   meshes: ChipMesh[] = [];
   transforms: RigidTransform[] = [];
+  /** Bac à copeaux du tas affiché (dimensions effectives), ou null. */
+  bin: BinGeometry | null = null;
   status: Status = { phase: 'pret', progress: 0, message: '', lastMs: 0 };
   exporting = false;
 
@@ -195,8 +198,10 @@ export class App {
   setPile(p: Partial<PileSettings>): void {
     this.state.pile = { ...this.state.pile, ...p };
     this.emit('pile');
-    if (this.state.mode === 'tas') {
-      if ('count' in p || 'spread' in p) this.refit = true;
+    // Exporter ou non le bac ne change pas la scène.
+    const keys = Object.keys(p).filter((k) => k !== 'exportBin');
+    if (this.state.mode === 'tas' && keys.length) {
+      if (keys.some((k) => k !== 'variability' && k !== 'physics')) this.refit = true;
       this.scheduleRegen(250);
     }
   }
@@ -278,14 +283,21 @@ export class App {
     if (this.state.mode === 'unique') {
       const m = this.meshes[0];
       this.transforms = [{ q: [...IDENTITY.q], t: [0, -m.bounds[1], 0] }];
+      this.bin = null;
+      this.viewer.setBin(null);
       this.viewer.setChips(this.meshes, this.transforms);
       this.finishRegen(genMs, refine);
       return;
     }
 
-    // Tas : dispersion immédiate, puis chute physique éventuelle.
+    // Tas : dispersion immédiate, puis chute physique éventuelle (sur la grille ou dans le bac).
     const pile = this.state.pile;
-    this.transforms = scatterPile(this.meshes, this.state.seed, pile.spread);
+    this.bin =
+      pile.container === 'bac'
+        ? binGeometry({ length: pile.binLength, width: pile.binWidth, height: pile.binHeight }, this.meshes.map(chipRadius))
+        : null;
+    this.viewer.setBin(this.bin);
+    this.transforms = scatterPile(this.meshes, this.state.seed, pile.spread, this.bin);
     this.viewer.setChips(this.meshes, this.transforms);
     if (!pile.physics) {
       this.finishRegen(genMs);
@@ -299,6 +311,7 @@ export class App {
       const final = await simulatePile(this.meshes, {
         seed: this.state.seed,
         spread: pile.spread,
+        bin: this.bin,
         signal,
         onFrame: (tr, progress) => {
           if (signal.cancelled) return;
@@ -372,7 +385,13 @@ export class App {
         specs,
         this.transforms.map((t) => ({ q: [...t.q], t: [...t.t] })),
         quality,
-        { unit: s.exp.unit, uvMode: s.exp.uvMode, uvScaleMM: s.exp.uvScaleMM, baseName },
+        {
+          unit: s.exp.unit,
+          uvMode: s.exp.uvMode,
+          uvScaleMM: s.exp.uvScaleMM,
+          baseName,
+          bin: s.mode === 'tas' && s.pile.exportBin && this.bin ? { ...this.bin } : null,
+        },
         (done, total) => this.setStatus({ progress: done / total }),
       );
       downloadBytes(res.file.parts, res.file.name, res.file.mime);

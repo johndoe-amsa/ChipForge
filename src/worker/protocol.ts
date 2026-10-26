@@ -2,6 +2,7 @@ import type { ChipParams, QualitySettings } from '../core/params';
 import type { ChipMesh } from '../core/geometry/mesh';
 import type { RigidTransform } from '../core/export/transform';
 import type { LengthUnit, UvMode } from '../core/export/obj';
+import type { BinGeometry } from '../core/bin';
 
 export interface ChipSpec {
   name: string;
@@ -14,6 +15,8 @@ export interface ExportOptions {
   uvMode: UvMode;
   uvScaleMM: number;
   baseName: string;
+  /** Bac à copeaux à exporter avec le tas, ou null. */
+  bin: BinGeometry | null;
 }
 
 export type WorkerRequest =
@@ -45,7 +48,7 @@ export type WorkerResponse =
 
 /** Tableaux transférables d'un maillage (zéro copie entre threads). */
 export function meshTransferables(m: ChipMesh): ArrayBuffer[] {
-  return [m.positions, m.normals, m.vPos, m.vNrm, m.uvMM, m.uv01, m.quads, m.groups, m.colliders, m.bounds].map(
-    (a) => a.buffer as ArrayBuffer,
-  );
+  const arrays: ArrayBufferView[] = [m.positions, m.normals, m.vPos, m.vNrm, m.uvMM, m.uv01, m.quads, m.groups, m.colliders, m.bounds];
+  if (m.colors) arrays.push(m.colors);
+  return arrays.map((a) => a.buffer as ArrayBuffer);
 }

@@ -7,6 +7,14 @@ import { writeSTEPStream, type StepItem } from '../core/export/step';
 import { safeFileName } from '../core/export/transform';
 import { sanitizeParams } from '../core/params';
 import { meshTransferables, type ExportedFile, type WorkerRequest, type WorkerResponse } from './protocol';
+import { binBoxes, type BinGeometry } from '../core/bin';
+
+/** Dimensions de bac reçues : nombres finis et bornés, sinon pas de bac. */
+function cleanBin(b: BinGeometry | null | undefined): BinGeometry | null {
+  if (!b) return null;
+  const ok = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 10000;
+  return ok(b.length) && ok(b.width) && ok(b.height) && ok(b.wall) ? { length: b.length, width: b.width, height: b.height, wall: b.wall } : null;
+}
 
 /**
  * Worker de génération : maillages d'aperçu et fichiers d'export, hors du thread d'interface.
@@ -56,6 +64,7 @@ async function exportFile(req: Extract<WorkerRequest, { type: 'export' }>): Prom
   const t0 = performance.now();
   const base = safeFileName(req.options.baseName);
   const total = req.chips.length;
+  const bin = cleanBin(req.options.bin);
   const parts: Uint8Array[] = [];
   let quads = 0;
   let vertices = 0;
@@ -82,12 +91,13 @@ async function exportFile(req: Extract<WorkerRequest, { type: 'export' }>): Prom
       progress(i + 1);
       await yieldToEvents();
     }
+    if (bin) writer.addBoxes('bac', binBoxes(bin));
     writer.finish();
     rawBytes = writer.bytesWritten;
     objEntry.push(new Uint8Array(0), true);
     const mtl = new ZipDeflate(mtlName, { level: 6 });
     zip.add(mtl);
-    mtl.push(strToU8(writeMTL()), true);
+    mtl.push(strToU8(writeMTL(writer.temperMaterials.values(), writer.hasBin)), true);
     zip.end();
     if (zipError) throw zipError;
     finish({ name: `${base}.zip`, mime: 'application/zip', parts, size: parts.reduce((a, p) => a + p.length, 0) });
@@ -95,6 +105,7 @@ async function exportFile(req: Extract<WorkerRequest, { type: 'export' }>): Prom
   }
 
   const getItem = (i: number): StepItem => {
+    if (i >= total) return { name: 'bac', boxes: binBoxes(bin!) };
     const c = req.chips[i];
     const grid = buildChipGrid(sanitizeParams(c.params), c.seed >>> 0, req.quality);
     quads += (grid.rings - 1) * grid.M;
@@ -102,7 +113,7 @@ async function exportFile(req: Extract<WorkerRequest, { type: 'export' }>): Prom
     progress(i + 1);
     return { name: safeFileName(c.name, `copeau_${i + 1}`), grid, transform: req.transforms[i] };
   };
-  rawBytes = writeSTEPStream(total, getItem, `${base}.stp`, (chunk) => parts.push(chunk));
+  rawBytes = writeSTEPStream(total + (bin ? 1 : 0), getItem, `${base}.stp`, (chunk) => parts.push(chunk));
   finish({ name: `${base}.stp`, mime: 'application/step', parts, size: rawBytes });
 
   function finish(file: ExportedFile): void {
