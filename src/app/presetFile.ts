@@ -1,5 +1,6 @@
 import { sanitizeParams, type ChipParams } from '../core/params';
-import { DEFAULT_PILE, FORMS, MATERIALS, PROCESSES, SHORTCUTS, type PileSettings, type PresetSelection } from '../core/presets/presets';
+import { DEFAULT_PILE, FORMS, MAX_PILE_COUNT, MATERIALS, PROCESSES, SHORTCUTS, type PileSettings, type PresetSelection } from '../core/presets/presets';
+import { PYRAMID_SLOPE_RANGE } from '../core/pyramid';
 
 /**
  * Presets personnels au format JSON.
@@ -72,11 +73,12 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
   const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
   const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
   const pile: PileSettings = {
-    count: Math.round(num(own(pr, 'count'), 1, 200, DEFAULT_PILE.count)),
+    count: Math.round(num(own(pr, 'count'), 1, MAX_PILE_COUNT, DEFAULT_PILE.count)),
     variability: num(own(pr, 'variability'), 0, 1, DEFAULT_PILE.variability),
     spread: num(own(pr, 'spread'), 0, 2000, DEFAULT_PILE.spread),
     physics: bool(own(pr, 'physics'), DEFAULT_PILE.physics),
-    container: own(pr, 'container') === 'bac' ? 'bac' : 'sol',
+    container: own(pr, 'container') === 'bac' ? 'bac' : own(pr, 'container') === 'pyramide' ? 'pyramide' : 'sol',
+    pyramidSlope: num(own(pr, 'pyramidSlope'), PYRAMID_SLOPE_RANGE[0], PYRAMID_SLOPE_RANGE[1], DEFAULT_PILE.pyramidSlope),
     binLength: num(own(pr, 'binLength'), 0, 2000, DEFAULT_PILE.binLength),
     binWidth: num(own(pr, 'binWidth'), 0, 2000, DEFAULT_PILE.binWidth),
     binHeight: num(own(pr, 'binHeight'), 0, 2000, DEFAULT_PILE.binHeight),

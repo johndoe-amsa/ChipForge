@@ -7,7 +7,7 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 - **Presets Matière × Procédé** : acier, inox, titane, laiton, plastique, aluminium, cuivre, superalliage/trempé × tournage/décolletage, gorge/tronçonnage, fraisage, perçage.
 - **49 paramètres** (curseurs + saisie numérique) : macro-géométrie, section, bords, profil longitudinal, micro-reliefs, bruit, couleurs de revenu.
 - **Couleurs de revenu** : teintes d'oxydation (paille, or, bronze, pourpre, bleu…) variant le long du copeau, d'une face à l'autre et d'un copeau à l'autre.
-- **Mode tas** : jusqu'à 200 copeaux variés autour du preset, chute physique réaliste et déterministe, sur la grille ou dans un **bac à copeaux**.
+- **Mode tas** : jusqu'à 1000 copeaux variés autour du preset, chute physique réaliste et déterministe, sur la grille, dans un **bac à copeaux** ou moulés en **tas pyramidal**. Le tas est calculé à la demande (bouton *Générer le tas*).
 - **Exports** : OBJ (+ MTL, archive .zip) et **STEP AP214 en B-Rep NURBS**, couleurs de revenu et bac compris.
 
 ---
@@ -19,9 +19,9 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 | Panneau gauche | Presets (matière, procédé, forme ISO, raccourcis, presets personnels JSON) puis paramètres en accordéons. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset. |
 | Centre | Vue 3D : rotation (clic gauche), panoramique (clic droit), zoom (molette). Barre d'outils : recadrer, grille, axes, filaire, damier UV, MatCap, qualité d'aperçu *Rapide / Détaillé*. |
 | Haut | Mode *Copeau unique / Tas*, **seed** (🎲 = nouvelle variation), export rapide OBJ / STEP. |
-| Panneau droit | Réglages du tas (dont réceptacle : grille ou bac), statistiques (quads, triangles, sommets), options d'export. |
+| Panneau droit | Réglages du tas (dont réceptacle : grille, bac ou pyramide) et bouton *Générer le tas*, statistiques (quads, triangles, sommets), options d'export. |
 
-Raccourcis clavier : `R` nouvelle seed · `F` recadrer · `W` filaire · `U` damier UV · `Échap` ferme les tiroirs (tablette).
+Raccourcis clavier : `R` nouvelle seed (et nouvelle chute en mode tas) · `G` générer le tas · `F` recadrer · `W` filaire · `U` damier UV · `Échap` ferme les tiroirs (tablette).
 
 **Seed** : toute la part aléatoire (bruit, crans, cassures, dispersion du tas, chute physique) dérive de la seed.
 Mêmes réglages + même seed = exactement la même géométrie, à l'aperçu comme à l'export.
@@ -57,11 +57,24 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
   nues. En mode tas, chaque copeau a sa propre teinte. Le preset *Superalliage / trempé* est bleui par défaut (tournage
   dur à sec) ; pour les autres matières, monter « Teinte de revenu » au-dessus de 0.
 
-## Mode tas et bac à copeaux
+## Mode tas, bac à copeaux et pyramide
+
+**Génération à la demande** : en mode tas, modifier un réglage (paramètres du copeau, preset, seed, nombre, réceptacle…)
+ne relance pas le calcul, qui peut être long pour un grand lot. Le tas affiché est signalé comme périmé et le bouton
+*Générer le tas* (panneau droit, rappelé sous la vue 3D, touche `G`) le recalcule. *Nouvelle chute* (ou 🎲 / `R`)
+tire une nouvelle seed et relance aussitôt. L'export est refusé tant que le tas affiché ne correspond pas aux réglages.
+En copeau unique, l'aperçu reste instantané.
+
 
 Les copeaux tombent en monticule sur la grille ou, avec *Réceptacle : Dans un bac*, dans un bac rectangulaire ouvert
 (fond + 4 parois). Ses dimensions intérieures sont automatiques (taille et nombre de copeaux) ou saisies en mm.
 *Exporter le bac* l'ajoute aux fichiers (objet / pièce `bac`, à sa place sous le tas).
+
+Avec *Réceptacle : En pyramide*, les copeaux forment un tas pyramidal à base carrée, de pente réglable (15 à 65°).
+Des copeaux simplement versés s'étalent (pente d'éboulement faible) ; le tas est donc **moulé comme un pâté de sable** :
+les copeaux remplissent une trémie pyramidale invisible (moule tête en bas), où ils se tassent ; le contenu est
+retourné d'un demi-tour (rotation : les copeaux gardent leur sens d'enroulement), se tasse contre le moule à l'endroit,
+puis le moule est retiré et les bords s'affaissent un peu. La taille de la pyramide découle du volume des copeaux.
 
 ## Exports
 
@@ -149,6 +162,7 @@ src/
     geometry/relax.ts   relaxation finale des auto-intersections (déplacement B-spline lisse et inextensible)
     temper.ts           couleurs de revenu : nuanciers d'oxydes, champ de teinte sur le copeau
     bin.ts              bac à copeaux du mode tas (dimensions, pavés partagés physique / aperçu / export)
+    pyramid.ts          tas en pyramide : dimensions selon le volume des copeaux, tirage dans le volume
     geometry/chip.ts    section, micro-reliefs, grille structurée, carreaux de Coons, collisions
     geometry/mesh.ts    maillage quad : îlots UV, normales, groupes
     presets/presets.ts  ISO 3685, matières, procédés, raccourcis, variabilité du tas

@@ -4,7 +4,8 @@
  * Sert à la fois à la simulation physique (parois fixes), à l'aperçu et à l'export.
  */
 
-export type Container = 'sol' | 'bac';
+/** Réceptacle du tas : grille, bac à copeaux, ou tas moulé en pyramide (voir pyramid.ts). */
+export type Container = 'sol' | 'bac' | 'pyramide';
 
 export interface BinGeometry {
   /** Dimensions intérieures (mm) : longueur (X), largeur (Z), hauteur des parois (Y). */
