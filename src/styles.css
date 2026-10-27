@@ -1,23 +1,34 @@
 @import "tailwindcss";
 
-/* ------------------------------------------------------------------ Thème */
+/* ================================================================== Thème */
 :root {
-  --bg: #0d0f13;
-  --panel: #14171d;
-  --panel-2: #1a1e25;
-  --panel-3: #222731;
-  --border: #272c36;
-  --border-2: #323845;
-  --text: #d9dde4;
-  --muted: #8b93a2;
-  --faint: #5d6574;
-  --accent: #4ea1ff;
-  --accent-2: #2f7fd9;
+  --bg: #0b0d10;
+  --surface: #121418;
+  --surface-2: #171a1f;
+  --surface-3: #1e2229;
+  --surface-4: #262b34;
+  --border: #22262d;
+  --border-2: #2d323b;
+  --border-3: #3a404b;
+  --text: #e4e7ec;
+  --text-2: #aab1bd;
+  --text-3: #727a88;
+  --accent: #4c9dff;
+  --accent-2: #2f7fe0;
+  --accent-soft: rgb(76 157 255 / 0.13);
+  --accent-line: rgb(76 157 255 / 0.55);
   --good: #3fcf8e;
   --ok: #e8c547;
   --bad: #f0566b;
-  --radius: 7px;
+  --warn-text: #f2c46d;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --rail-w: 64px;
+  --sidebar-w: 344px;
+  --top-h: 48px;
+  --status-h: 26px;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.02);
   color-scheme: dark;
 }
 
@@ -38,46 +49,52 @@ select {
   font: inherit;
   color: inherit;
 }
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+[hidden] {
+  display: none !important;
+}
 
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-/* ------------------------------------------------------------------ Mise en page */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-3) transparent;
+}
+
+/* ================================================================== Mise en page */
 .cf-app {
   display: grid;
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-rows: var(--top-h) minmax(0, 1fr) var(--status-h);
   height: 100vh;
   height: 100dvh;
 }
 
-.cf-main {
+.cf-workspace {
+  position: relative;
   display: grid;
-  grid-template-columns: 356px minmax(0, 1fr) 300px;
+  grid-template-columns: var(--rail-w) var(--sidebar-w) minmax(0, 1fr);
   min-height: 0;
 }
-
-.cf-panel {
-  background: var(--panel);
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-2) transparent;
+body.sidebar-collapsed .cf-workspace {
+  grid-template-columns: var(--rail-w) 0 minmax(0, 1fr);
 }
-.cf-panel-left {
-  border-right: 1px solid var(--border);
-}
-.cf-panel-right {
-  border-left: 1px solid var(--border);
+body.sidebar-collapsed .cf-sidebar {
+  visibility: hidden;
 }
 
 .cf-viewport {
   position: relative;
   min-width: 0;
   min-height: 0;
-  background: radial-gradient(120% 90% at 50% 35%, #242a33 0%, #171a20 55%, #0f1115 100%);
+  background: radial-gradient(120% 90% at 50% 35%, #232830 0%, #161920 55%, #0e1014 100%);
   overflow: hidden;
 }
 .viewport-canvas {
@@ -89,222 +106,566 @@ select {
   touch-action: none;
 }
 
-/* ------------------------------------------------------------------ Barre supérieure */
+/* ================================================================== Barre supérieure */
 .cf-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 12px;
-  background: linear-gradient(#171a20, #13161b);
+  gap: 10px;
+  padding: 0 10px 0 14px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   min-width: 0;
 }
 .cf-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  gap: 9px;
+  flex: none;
 }
 .cf-logo {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(140deg, #26303d, #1a2029);
-  color: var(--accent);
-  border: 1px solid var(--border-2);
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(140deg, #2a65b0, #1c3f72);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
 }
 .cf-brand-name {
   font-weight: 650;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   font-size: 14px;
 }
-.cf-brand-sub {
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
+.cf-top-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border-2);
+  flex: none;
 }
-.cf-top-center {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-}
-.cf-top-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.cf-top-label {
-  color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.cf-seed-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.cf-seed {
-  width: 92px;
-  text-align: center;
+.cf-top-spacer {
+  flex: 1 1 auto;
 }
 
-/* ------------------------------------------------------------------ Boutons */
+.cf-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.cf-crumbs:hover {
+  background: var(--surface-3);
+  border-color: var(--border-2);
+}
+.cf-crumb {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cf-crumb-dim {
+  color: var(--text-2);
+  flex: none;
+}
+.cf-crumb-main {
+  font-weight: 600;
+  min-width: 0;
+}
+.cf-crumb-sep {
+  color: var(--text-3);
+  flex: none;
+}
+.cf-crumbs .cf-badge {
+  flex: none;
+}
+
+.cf-seed {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  overflow: hidden;
+  flex: none;
+}
+.cf-seed:focus-within {
+  border-color: var(--accent-line);
+}
+.cf-seed-label {
+  padding: 0 4px 0 10px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cf-seed-input {
+  width: 84px;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.cf-seed-input:focus {
+  outline: none;
+}
+.cf-seed-input::-webkit-inner-spin-button,
+.cf-seed-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.cf-seed-dice {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 100%;
+  border-left: 1px solid var(--border-2);
+  color: var(--text-2);
+}
+.cf-seed-dice:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.cf-caret {
+  transform: rotate(90deg);
+  color: var(--text-3);
+}
+
+/* ================================================================== Boutons */
 .cf-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 30px;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
   padding: 0 12px;
   border-radius: var(--radius);
-  background: var(--panel-3);
+  background: var(--surface-3);
   border: 1px solid var(--border-2);
   color: var(--text);
   font-weight: 550;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
   white-space: nowrap;
+  flex: none;
 }
-.cf-btn:hover {
-  background: #2a303c;
-  border-color: #3b4252;
+.cf-btn:hover:not(:disabled) {
+  background: var(--surface-4);
+  border-color: var(--border-3);
 }
 .cf-btn:disabled {
   opacity: 0.45;
-  cursor: progress;
 }
 .cf-btn-primary {
   background: var(--accent-2);
   border-color: #3d8de6;
   color: #fff;
 }
-.cf-btn-primary:hover {
+.cf-btn-primary:hover:not(:disabled) {
   background: #3a8ae3;
   border-color: #5aa6f5;
 }
+.cf-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.cf-btn-ghost:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-2);
+  color: var(--text);
+}
 .cf-btn-icon {
-  width: 30px;
+  width: 32px;
   padding: 0;
-  justify-content: center;
 }
 .cf-btn-sm {
-  height: 27px;
+  height: 28px;
   padding: 0 9px;
   font-size: 12px;
+  gap: 5px;
+}
+.cf-btn-sm.cf-btn-icon {
+  width: 28px;
+  padding: 0;
+}
+.cf-btn-block {
+  width: 100%;
+  flex: 1 1 auto;
+}
+.cf-btn .cf-kbd {
+  margin-left: 2px;
+}
+.cf-btn-primary .cf-kbd {
+  background: rgb(255 255 255 / 0.16);
+  border-color: rgb(255 255 255 / 0.2);
+  color: #fff;
 }
 
+.cf-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-3);
+  border-bottom-width: 2px;
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+/* Contrôle segmenté */
 .cf-seg {
   display: inline-flex;
   padding: 2px;
   gap: 2px;
   border-radius: var(--radius);
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-2);
   max-width: 100%;
 }
 .cf-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1 1 auto;
-  padding: 3px 9px;
-  border-radius: 5px;
-  color: var(--muted);
-  cursor: pointer;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: var(--text-2);
   white-space: nowrap;
   font-size: 12px;
+}
+.cf-seg-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cf-seg-btn:hover {
   color: var(--text);
 }
 .cf-seg-btn.is-active {
-  background: var(--panel-3);
+  background: var(--surface-4);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border-2);
+  box-shadow: inset 0 0 0 1px var(--border-3);
 }
-.cf-seg-lg .cf-seg-btn {
-  padding: 4px 12px;
-  font-size: 12.5px;
+.cf-seg-block {
+  display: flex;
+  width: 100%;
+}
+.cf-seg-block .cf-seg-btn {
+  flex: 1 1 0;
+}
+.cf-seg-mode {
+  height: 32px;
+  flex: none;
+}
+.cf-seg-mode .cf-seg-btn {
+  padding: 0 12px;
+  font-weight: 550;
+}
+.cf-seg-mode .cf-seg-btn.is-active {
+  background: var(--accent-soft);
+  color: #cfe4ff;
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .cf-seg-sm .cf-seg-btn {
   padding: 2px 8px;
   font-size: 11.5px;
 }
 
-/* ------------------------------------------------------------------ Sections */
+/* ================================================================== Barre d'activité */
+.cf-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  z-index: 20;
+}
+.cf-rail-group {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+}
+.cf-rail-btn {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  width: 54px;
+  height: 52px;
+  border-radius: 8px;
+  color: var(--text-3);
+  transition: color 0.12s, background 0.12s;
+}
+.cf-rail-btn:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.cf-rail-btn.is-active {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.cf-rail-btn.is-active svg {
+  color: var(--accent);
+}
+.cf-rail-btn.is-active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+.cf-rail-label {
+  font-size: 10px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.cf-rail-dot {
+  position: absolute;
+  top: 7px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Info-bulles (barre d'activité à droite, outils de la vue en dessous) */
+[data-tip] {
+  position: relative;
+}
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 60;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #050608;
+  border: 1px solid var(--border-3);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: pre;
+  pointer-events: none;
+  box-shadow: var(--shadow-pop);
+}
+@media (hover: none) {
+  [data-tip]:hover::after {
+    display: none;
+  }
+}
+.cf-rail-btn[data-tip]:hover::after {
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.cf-tool[data-tip]:hover::after {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ================================================================== Volet latéral */
+.cf-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.cf-sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 12px 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+.cf-sidebar-titles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cf-sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.cf-sidebar-title svg {
+  color: var(--accent);
+}
+.cf-sidebar-sub {
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.cf-sidebar-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.cf-sidebar-close {
+  display: none;
+}
+.cf-sidebar-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.cf-sidebar-foot {
+  flex: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.cf-panel-foot-inner {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.cf-foot-row {
+  display: flex;
+  gap: 6px;
+}
+.cf-stale-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--warn-text);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* ================================================================== Sections */
 .cf-section {
   border-bottom: 1px solid var(--border);
 }
 .cf-section-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px 0 10px;
   cursor: pointer;
   list-style: none;
   user-select: none;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: #b9c0cc;
-  background: var(--panel-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
 }
 .cf-section-title::-webkit-details-marker {
   display: none;
 }
 .cf-section-title:hover {
-  color: var(--text);
+  background: var(--surface-2);
+}
+.cf-section-name {
+  flex: 1 1 auto;
+}
+.cf-section-icon {
+  color: var(--text-2);
 }
 .cf-chevron {
-  color: var(--faint);
+  color: var(--text-3);
   transition: transform 0.15s;
 }
-.cf-section[open] .cf-chevron {
+.cf-section[open] > .cf-section-title .cf-chevron {
   transform: rotate(90deg);
 }
-.cf-section-body {
-  padding: 8px 14px 14px;
+.cf-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 650;
 }
-.cf-sub {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 12px 0 6px;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 600;
+.cf-section-body {
+  padding: 0 16px 14px;
 }
 .cf-hint {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: 11.5px;
   line-height: 1.45;
-  margin: 2px 0 8px;
+  margin: 0 0 8px;
+}
+.cf-info {
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 6px 0 2px;
+  padding: 7px 9px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
-/* ------------------------------------------------------------------ Bandeau preset */
-.cf-banner {
-  padding: 10px 11px;
-  border-radius: var(--radius);
-  background: var(--bg);
-  border: 1px solid var(--border);
+/* ================================================================== Preset courant */
+.cf-current {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  justify-items: start;
+  margin: 14px 16px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--surface-3), var(--surface-2));
+  border: 1px solid var(--border-2);
 }
-.cf-banner-title {
+.cf-current-title {
   font-weight: 650;
-  font-size: 13px;
+  font-size: 13.5px;
   margin-top: 4px;
 }
-.cf-banner-sub {
-  color: var(--muted);
-  font-size: 11.5px;
+.cf-current-sub {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-2);
+  font-size: 12px;
 }
-.cf-banner-desc {
-  color: #aeb5c1;
+.cf-current-desc {
+  color: var(--text-3);
   font-size: 11.5px;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.cf-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.55), transparent 55%), var(--swatch);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
 .cf-badge {
@@ -336,74 +697,97 @@ select {
 .cf-legend {
   display: flex;
   gap: 4px;
+  margin-bottom: 10px;
 }
 .cf-legend .cf-badge {
-  font-size: 9.5px;
-  padding: 0 5px;
+  font-size: 10px;
+  padding: 0 6px;
 }
 
-/* ------------------------------------------------------------------ Chips & pilules */
-.cf-chip-grid {
+/* ================================================================== Tuiles (matière, procédé) */
+.cf-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 5px;
+  gap: 6px;
 }
-.cf-chip {
+.cf-tile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 6px 8px;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 7px 9px;
   border-radius: var(--radius);
-  background: var(--panel-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   text-align: left;
-  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.cf-tile:hover {
+  border-color: var(--border-3);
+  background: var(--surface-3);
+}
+.cf-tile.is-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.cf-tile .cf-swatch {
+  width: 16px;
+  height: 16px;
+}
+.cf-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: var(--surface-4);
+  color: var(--text-2);
+  flex: none;
+}
+.cf-tile.is-active .cf-tile-icon {
+  color: var(--accent);
+  background: rgb(76 157 255 / 0.16);
+}
+.cf-tile-text {
+  display: grid;
   min-width: 0;
 }
-.cf-chip:hover {
-  border-color: var(--border-2);
-  background: var(--panel-3);
-}
-.cf-chip.is-active {
-  border-color: var(--accent);
-  background: rgb(78 161 255 / 0.1);
-}
-.cf-chip-name {
+.cf-tile-name {
   font-weight: 600;
   font-size: 12px;
+  line-height: 1.3;
 }
-.cf-chip-sub {
-  color: var(--faint);
+.cf-tile-sub {
+  color: var(--text-3);
   font-size: 10.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
 
+/* ================================================================== Formes ISO et pilules */
 .cf-iso {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
-.cf-iso-row,
-.cf-sc-row {
+.cf-iso-row {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: 98px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  padding: 3px 0;
 }
-.cf-sc-row {
-  grid-template-columns: 62px minmax(0, 1fr);
-  margin-bottom: 4px;
+.cf-iso-row + .cf-iso-row {
+  border-top: 1px dashed var(--border);
 }
 .cf-iso-fam {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 11.5px;
-  color: #b9c0cc;
+  color: var(--text-2);
   min-width: 0;
+  line-height: 1.25;
 }
 .cf-iso-num {
   display: grid;
@@ -411,17 +795,13 @@ select {
   width: 18px;
   height: 18px;
   border-radius: 5px;
-  background: var(--panel-3);
-  color: var(--muted);
+  background: var(--surface-4);
+  color: var(--text-2);
   font-family: var(--mono);
   font-size: 10.5px;
   flex: none;
 }
-.cf-sc-label {
-  font-size: 11px;
-  color: var(--muted);
-}
-.cf-iso-variants {
+.cf-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -430,17 +810,16 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px 2px 5px;
+  padding: 2px 8px 2px 6px;
   border-radius: 999px;
-  font-size: 10.5px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  cursor: pointer;
+  font-size: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
   white-space: nowrap;
 }
 .cf-pill:hover {
-  border-color: var(--border-2);
-  background: var(--panel-3);
+  border-color: var(--border-3);
+  background: var(--surface-3);
 }
 .cf-pill-mark {
   font-weight: 700;
@@ -457,54 +836,62 @@ select {
 }
 .cf-pill.is-active {
   border-color: var(--accent);
-  background: rgb(78 161 255 / 0.14);
+  background: var(--accent-soft);
   color: #fff;
 }
-
-.cf-preset-io {
+.cf-sc-group {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 5px;
 }
+.cf-sc-group + .cf-sc-group {
+  margin-top: 10px;
+}
+.cf-sc-label {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 600;
+}
 
-/* ------------------------------------------------------------------ Contrôles */
+/* ================================================================== Contrôles */
 .cf-row {
-  padding: 5px 0;
+  display: block;
+  padding: 5px 0 3px;
 }
 .cf-row-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-.cf-row-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
-  align-items: center;
-  gap: 8px;
-  margin-top: 2px;
+  gap: 4px;
 }
 .cf-row-inline {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-height: 34px;
 }
 .cf-label {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 12px;
-  color: #c3c9d3;
+  color: var(--text-2);
   user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cf-row.is-modified .cf-label {
   color: var(--accent);
 }
 .cf-reset {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
   opacity: 0;
   pointer-events: none;
-  color: var(--muted);
-  padding: 2px;
+  color: var(--text-3);
   border-radius: 4px;
-  cursor: pointer;
+  flex: none;
 }
 .cf-row.is-modified .cf-reset {
   opacity: 1;
@@ -512,89 +899,119 @@ select {
 }
 .cf-reset:hover {
   color: var(--text);
-  background: var(--panel-3);
+  background: var(--surface-4);
 }
 .cf-num-wrap {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-.cf-num,
-.cf-text,
-.cf-select {
+  width: 104px;
+  flex: none;
   height: 26px;
   border-radius: 5px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 0 6px;
-  min-width: 0;
+  border: 1px solid var(--border-2);
+  overflow: hidden;
+}
+.cf-num-wrap:hover {
+  border-color: var(--border-3);
+}
+.cf-num-wrap:focus-within {
+  border-color: var(--accent-line);
 }
 .cf-num {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0 4px 0 6px;
   font-family: var(--mono);
   font-size: 11.5px;
   text-align: right;
+  -moz-appearance: textfield;
 }
-.cf-num::-webkit-inner-spin-button {
-  opacity: 0.35;
+.cf-num:focus {
+  outline: none;
 }
-.cf-num:hover,
-.cf-text:hover,
-.cf-select:hover {
-  border-color: var(--border-2);
+.cf-num::-webkit-inner-spin-button,
+.cf-num::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.cf-unit {
+  color: var(--text-3);
+  font-size: 10.5px;
+  padding-right: 7px;
+  white-space: nowrap;
+}
+.cf-unit:empty {
+  padding-right: 3px;
+}
+.cf-text,
+.cf-select {
+  height: 30px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  padding: 0 8px;
+  min-width: 0;
 }
 .cf-text {
   width: 100%;
 }
+.cf-text:hover,
+.cf-select:hover {
+  border-color: var(--border-3);
+}
+.cf-text:focus,
+.cf-select:focus {
+  outline: none;
+  border-color: var(--accent-line);
+}
 .cf-select {
-  cursor: pointer;
-  padding-right: 4px;
-}
-.cf-select-sm {
-  height: 26px;
+  height: 28px;
+  padding: 0 4px 0 7px;
   font-size: 12px;
-}
-.cf-unit {
-  color: var(--faint);
-  font-size: 10.5px;
-  min-width: 28px;
-  white-space: nowrap;
 }
 
 .cf-range {
   -webkit-appearance: none;
   appearance: none;
+  display: block;
   width: 100%;
-  height: 18px;
+  height: 16px;
+  margin-top: 3px;
   background: transparent;
-  cursor: pointer;
 }
 .cf-range::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: var(--panel-3);
+  background: var(--surface-4);
 }
 .cf-range::-moz-range-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: var(--panel-3);
+  background: var(--surface-4);
 }
 .cf-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 13px;
-  height: 13px;
+  width: 12px;
+  height: 12px;
   margin-top: -4.5px;
   border-radius: 50%;
   background: #cfd5df;
-  border: 2px solid var(--panel);
-  box-shadow: 0 0 0 1px var(--border-2);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border-3);
 }
 .cf-range::-moz-range-thumb {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #cfd5df;
-  border: 2px solid var(--panel);
+  border: 2px solid var(--surface);
+}
+.cf-range:hover::-webkit-slider-thumb {
+  background: #fff;
 }
 .cf-row.is-modified .cf-range::-webkit-slider-thumb {
   background: var(--accent);
@@ -609,8 +1026,8 @@ select {
   width: 30px;
   height: 17px;
   border-radius: 999px;
-  background: var(--panel-3);
-  border: 1px solid var(--border-2);
+  background: var(--surface-4);
+  border: 1px solid var(--border-3);
   position: relative;
   cursor: pointer;
   flex: none;
@@ -638,159 +1055,119 @@ select {
 
 .cf-field {
   display: grid;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-.cf-field .cf-seg {
-  width: 100%;
-}
-.cf-export-buttons {
-  display: grid;
   gap: 6px;
-  margin-top: 4px;
+  margin: 8px 0 10px;
 }
-.cf-notes {
-  margin-top: 12px;
-  display: grid;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
-  list-style: disc;
-  padding-left: 16px;
-}
-
-.cf-stats {
-  display: grid;
-  gap: 1px;
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-.cf-stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 9px;
-  background: var(--panel-2);
-}
-.cf-stat-k {
-  color: var(--muted);
-  font-size: 11.5px;
-}
-.cf-stat-v {
-  font-family: var(--mono);
+.cf-field-label {
   font-size: 12px;
+  color: var(--text-2);
 }
 
-/* ------------------------------------------------------------------ Viewport */
+/* ================================================================== Onglet Tas : état vide */
+.cf-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: 28px 20px;
+  padding: 24px 18px;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-3);
+}
+.cf-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.cf-empty-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+.cf-empty-text {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.cf-panel-body > .cf-section:first-child > .cf-section-title,
+.cf-panel-body > div > .cf-section:first-child > .cf-section-title {
+  margin-top: 2px;
+}
+
+/* ================================================================== Vue 3D */
 .cf-toolbar {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 4px;
-  border-radius: 9px;
-  background: rgb(18 21 26 / 0.82);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(6px);
-  flex-wrap: wrap;
-  max-width: calc(100% - 20px);
+  border-radius: 10px;
+  background: rgb(16 18 22 / 0.86);
+  border: 1px solid var(--border-2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
+  max-width: calc(100% - 24px);
+  z-index: 2;
 }
 .cf-tool {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
-  color: var(--muted);
-  cursor: pointer;
+  color: var(--text-2);
+  flex: none;
 }
 .cf-tool:hover {
-  background: var(--panel-3);
+  background: var(--surface-4);
   color: var(--text);
 }
 .cf-tool.is-active {
   color: var(--accent);
-  background: rgb(78 161 255 / 0.12);
+  background: var(--accent-soft);
 }
 .cf-sep {
   width: 1px;
   height: 18px;
-  background: var(--border-2);
-  margin: 0 3px;
+  background: var(--border-3);
+  margin: 0 5px;
+  flex: none;
 }
-.cf-vp-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 10px 5px 6px;
-  border-radius: 999px;
-  background: rgb(18 21 26 / 0.82);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  max-width: 50%;
+.cf-select-tool {
+  height: 30px;
+  background: transparent;
+  border-color: transparent;
+  margin-left: 2px;
 }
-.cf-vp-badge-t {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #c3c9d3;
+.cf-select-tool:hover {
+  background: var(--surface-4);
+}
+.cf-toolbar-label {
+  color: var(--text-3);
+  font-size: 11px;
+  padding: 0 6px 0 2px;
 }
 .cf-vp-stale {
   position: absolute;
   left: 50%;
-  bottom: 38px;
+  bottom: 22px;
   transform: translateX(-50%);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  height: 38px;
+  padding: 0 16px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
   z-index: 2;
 }
-.cf-vp-stale[hidden] {
+/* Le volet Tas ouvert porte déjà ce bouton. */
+body[data-panel="tas"]:not(.sidebar-collapsed) .cf-vp-stale {
   display: none;
-}
-.cf-stale-note {
-  color: #f2c46d;
-}
-.cf-statusbar {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-size: 11.5px;
-  color: var(--muted);
-  pointer-events: none;
-}
-.cf-grid-text {
-  font-family: var(--mono);
-  font-size: 11px;
-}
-.cf-status {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.cf-spinner {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: 2px solid var(--border-2);
-  border-top-color: var(--accent);
-  animation: cf-spin 0.8s linear infinite;
-}
-.cf-spinner[hidden] {
-  display: none;
-}
-@keyframes cf-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .cf-progress {
   position: absolute;
@@ -810,14 +1187,388 @@ select {
   transition: width 0.2s;
 }
 
-/* ------------------------------------------------------------------ Notifications */
+/* ================================================================== Barre d'état */
+.cf-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-3);
+  min-width: 0;
+  white-space: nowrap;
+}
+.cf-sb-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.cf-status-text {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cf-status-text.is-error {
+  color: #ff9aa8;
+}
+.cf-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.cf-status-dot.is-ok {
+  background: var(--good);
+}
+.cf-status-dot.is-warn {
+  background: var(--ok);
+}
+.cf-status-dot.is-error {
+  background: var(--bad);
+}
+.cf-sb-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+.cf-sb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.cf-sb-v {
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.cf-sb-item.is-warn .cf-sb-v {
+  color: var(--warn-text);
+}
+.cf-sb-grid {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.cf-spinner {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--border-3);
+  border-top-color: var(--accent);
+  animation: cf-spin 0.8s linear infinite;
+  flex: none;
+}
+@keyframes cf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ================================================================== Menus */
+.cf-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: 260px;
+  padding: 5px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--border-3);
+  box-shadow: var(--shadow-pop);
+  color: var(--text);
+}
+.cf-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 6px;
+  text-align: left;
+  color: var(--text-2);
+}
+.cf-menu-item:hover,
+.cf-menu-item:focus-visible {
+  background: var(--surface-4);
+  color: var(--text);
+  outline: none;
+}
+.cf-menu-text {
+  display: grid;
+  flex: 1 1 auto;
+  color: var(--text);
+}
+.cf-menu-hint {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.cf-menu-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border-2);
+}
+
+/* ================================================================== Boîtes de dialogue */
+.cf-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-3);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.6);
+  color: var(--text);
+  overflow: hidden;
+}
+.cf-dialog:focus {
+  outline: none;
+}
+.cf-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: cf-pop 0.16s ease-out;
+}
+.cf-dialog-wide {
+  width: min(720px, calc(100vw - 32px));
+}
+.cf-dialog::backdrop {
+  background: rgb(4 5 7 / 0.6);
+  backdrop-filter: blur(2px);
+}
+@keyframes cf-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+.cf-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 14px 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.cf-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex: none;
+}
+.cf-dialog-titles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cf-dialog-title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 32px;
+}
+.cf-dialog-sub {
+  margin-top: -4px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.cf-dialog-body {
+  padding: 6px 18px 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.cf-dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.cf-dialog-summary {
+  flex: 1 1 auto;
+  color: var(--text-3);
+  font-size: 12px;
+}
+.cf-dialog-label {
+  margin: 14px 0 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.cf-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+.cf-grid-2 .cf-field {
+  margin-top: 0;
+}
+.cf-uv-scale .cf-row {
+  padding-top: 0;
+}
+.cf-uv-scale .cf-label {
+  font-size: 12px;
+}
+
+.cf-formats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cf-format {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+.cf-format:hover {
+  border-color: var(--border-3);
+}
+.cf-format.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.cf-format-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--surface-4);
+  color: var(--text-2);
+  flex: none;
+}
+.cf-format.is-active .cf-format-icon {
+  color: var(--accent);
+  background: rgb(76 157 255 / 0.16);
+}
+.cf-format-text {
+  display: grid;
+  gap: 2px;
+}
+.cf-format-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 650;
+  font-size: 13.5px;
+}
+.cf-format-ext {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+}
+.cf-format-desc {
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.cf-input-group {
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+}
+.cf-input-group:focus-within {
+  border-color: var(--accent-line);
+}
+.cf-input-group .cf-text {
+  border: 0;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.cf-input-suffix {
+  padding: 0 10px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.cf-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 9px 10px 9px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cf-callout span {
+  flex: 1 1 auto;
+}
+.cf-callout-warn {
+  color: var(--warn-text);
+  background: rgb(232 197 71 / 0.08);
+  border: 1px solid rgb(232 197 71 / 0.3);
+}
+.cf-disclosure {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.cf-disclosure summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.cf-notes {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.45;
+  list-style: disc;
+  padding-left: 18px;
+}
+
+.cf-key-group {
+  margin-bottom: 4px;
+}
+.cf-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.cf-keys {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+/* ================================================================== Notifications */
 .cf-toasts {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: calc(var(--status-h) + 14px);
   display: grid;
   gap: 8px;
-  z-index: 50;
+  z-index: 70;
   max-width: min(440px, calc(100vw - 32px));
 }
 .cf-toast {
@@ -825,9 +1576,9 @@ select {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 9px;
-  background: #1d222b;
-  border: 1px solid var(--border-2);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.4);
+  background: var(--surface-3);
+  border: 1px solid var(--border-3);
+  box-shadow: var(--shadow-pop);
   font-size: 12.5px;
   line-height: 1.4;
   opacity: 0;
@@ -866,68 +1617,80 @@ select {
   color: var(--bad);
 }
 
-/* ------------------------------------------------------------------ Écrans étroits (tablette) */
-.cf-only-narrow {
-  display: none;
-}
-.cf-scrim {
-  display: none;
+/* ================================================================== Écrans plus étroits */
+@media (max-width: 1360px) {
+  .cf-hide-lg {
+    display: none !important;
+  }
 }
 
 @media (max-width: 1180px) {
-  .cf-main {
-    grid-template-columns: minmax(0, 1fr);
+  .cf-hide-md {
+    display: none !important;
   }
-  .cf-only-narrow {
-    display: inline-flex;
-  }
-  .cf-brand-sub {
+  .cf-toolbar-label {
     display: none;
-  }
-  .cf-panel {
-    position: fixed;
-    top: 52px;
-    bottom: 0;
-    width: min(360px, 88vw);
-    z-index: 40;
-    transition: transform 0.22s ease;
-    box-shadow: 0 0 40px rgb(0 0 0 / 0.5);
-  }
-  .cf-panel-left {
-    left: 0;
-    transform: translateX(-105%);
-  }
-  .cf-panel-right {
-    right: 0;
-    transform: translateX(105%);
-  }
-  body.show-left .cf-panel-left,
-  body.show-right .cf-panel-right {
-    transform: none;
-  }
-  body.show-left .cf-scrim,
-  body.show-right .cf-scrim {
-    display: block;
-    position: fixed;
-    inset: 52px 0 0 0;
-    background: rgb(0 0 0 / 0.45);
-    z-index: 30;
   }
 }
 
-@media (max-width: 760px) {
-  .cf-seed-group .cf-top-label,
-  .cf-top-right .cf-btn:not(.cf-btn-icon) span {
+/* Tablette : le volet recouvre la vue au lieu de la réduire. */
+@media (max-width: 900px) {
+  .cf-workspace,
+  body.sidebar-collapsed .cf-workspace {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  }
+  .cf-viewport {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .cf-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--rail-w);
+    width: min(var(--sidebar-w), calc(100vw - var(--rail-w)));
+    z-index: 15;
+    box-shadow: 16px 0 40px rgb(0 0 0 / 0.5);
+  }
+  .cf-sidebar-close {
+    display: inline-flex;
+  }
+  .cf-brand-name,
+  .cf-brand + .cf-top-sep {
     display: none;
   }
-  .cf-top-center {
-    gap: 8px;
+  .cf-toolbar {
+    left: 12px;
+    transform: none;
+    flex-wrap: wrap;
   }
-  .cf-seg-lg .cf-seg-btn {
-    padding: 4px 8px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --rail-w: 56px;
   }
-  .cf-vp-badge {
-    display: none;
+  .cf-hide-sm,
+  .cf-seg-mode .cf-seg-text,
+  .cf-seed-label,
+  .cf-crumbs .cf-badge,
+  .cf-crumb-dim,
+  .cf-crumbs .cf-crumb-sep {
+    display: none !important;
+  }
+  .cf-topbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+  .cf-seed-input {
+    width: 64px;
+  }
+  .cf-rail-btn {
+    width: 48px;
+  }
+  .cf-grid-2,
+  .cf-formats {
+    grid-template-columns: 1fr;
   }
 }
 

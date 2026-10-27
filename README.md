@@ -16,12 +16,14 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 
 | Zone | Rôle |
 |---|---|
-| Panneau gauche | Presets (matière, procédé, forme ISO, raccourcis, presets personnels JSON) puis paramètres en accordéons. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset. |
+| Barre supérieure | Preset courant (matière › procédé › forme ISO, cliquable), mode *Copeau / Tas*, **seed** (🎲 = nouvelle variation), menu *Presets* (enregistrer / ouvrir un preset personnel JSON, revenir au preset) et bouton **Exporter**. |
+| Barre d'activité (à gauche) | Icônes des panneaux : **Preset** (matière, procédé, forme ISO, raccourcis atelier), **Géométrie** (macro-géométrie, section, profil), **Surface** (bords, micro-reliefs, bruit), **Couleurs** (revenu), **Tas**. Une pastille signale un panneau dont des paramètres diffèrent du preset. Cliquer l'icône active replie le volet. |
+| Volet latéral | Paramètres en sections repliables, chacune avec son icône et le nombre de paramètres modifiés. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset ; *Réinitialiser* remet tout le panneau. |
 | Centre | Vue 3D : rotation (clic gauche), panoramique (clic droit), zoom (molette). Barre d'outils : recadrer, grille, axes, filaire, damier UV, MatCap, qualité d'aperçu *Rapide / Détaillé*. |
-| Haut | Mode *Copeau unique / Tas*, **seed** (🎲 = nouvelle variation), export rapide OBJ / STEP. |
-| Panneau droit | Réglages du tas (dont réceptacle : grille, bac ou pyramide) et bouton *Générer le tas*, statistiques (quads, triangles, sommets), options d'export. |
+| Exporter | Boîte de dialogue unique : format (STEP ou OBJ), options du format, nom du fichier, bac éventuel. |
+| Barre d'état | Progression, puis statistiques de l'aperçu (copeaux, quads, sommets, temps de calcul, micro-reliefs, auto-intersections, pas de la grille). |
 
-Raccourcis clavier : `R` nouvelle seed (et nouvelle chute en mode tas) · `G` générer le tas · `F` recadrer · `W` filaire · `U` damier UV · `Échap` ferme les tiroirs (tablette).
+Raccourcis clavier (`?` les affiche) : `R` nouvelle seed (et nouvelle chute en mode tas) · `G` générer le tas · `E` exporter · `F` recadrer · `W` filaire · `U` damier UV · `1`–`5` panneaux · `P` afficher / masquer le volet · `Échap` ferme le volet (écrans étroits).
 
 **Seed** : toute la part aléatoire (bruit, crans, cassures, dispersion du tas, chute physique) dérive de la seed.
 Mêmes réglages + même seed = exactement la même géométrie, à l'aperçu comme à l'export.
@@ -61,7 +63,7 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
 
 **Génération à la demande** : en mode tas, modifier un réglage (paramètres du copeau, preset, seed, nombre, réceptacle…)
 ne relance pas le calcul, qui peut être long pour un grand lot. Le tas affiché est signalé comme périmé et le bouton
-*Générer le tas* (panneau droit, rappelé sous la vue 3D, touche `G`) le recalcule. *Nouvelle chute* (ou 🎲 / `R`)
+*Générer le tas* (panneau *Tas*, rappelé sous la vue 3D quand le panneau est fermé, touche `G`) le recalcule. *Nouvelle chute* (ou 🎲 / `R`)
 tire une nouvelle seed et relance aussitôt. L'export est refusé tant que le tas affiché ne correspond pas aux réglages.
 En copeau unique, l'aperçu reste instantané.
 
@@ -180,7 +182,9 @@ src/
   worker/               génération et export hors du thread d'interface
   physics/pile.ts       chute physique (Rapier, chargé à la demande)
   viewer/               Three.js : MatCaps procéduraux, grille, filaire, damier UV
-  ui/, app/             interface et orchestration
+  ui/                   interface : shell.ts (barres, volet, vue, clavier), panels/ (Preset, paramètres, Tas),
+                        exportDialog.ts, widgets.ts, controls.ts
+  app/                  orchestration (état, génération, export)
 security/headers.json   politique de sécurité HTTP (source unique)
 scripts/check-dist.mjs  contrôle de sécurité du bundle
 tests/                  Vitest

@@ -14,13 +14,13 @@
     <noscript><p class="cf-fatal">ChipForge nécessite JavaScript et WebGL.</p></noscript>
     <div class="cf-app">
       <header id="topbar" class="cf-topbar"></header>
-      <main class="cf-main">
-        <aside id="panel-left" class="cf-panel cf-panel-left" aria-label="Presets et paramètres"></aside>
-        <section id="viewport" class="cf-viewport" aria-label="Vue 3D"></section>
-        <aside id="panel-right" class="cf-panel cf-panel-right" aria-label="Tas, statistiques et export"></aside>
-      </main>
+      <div class="cf-workspace">
+        <nav id="rail" class="cf-rail" aria-label="Panneaux"></nav>
+        <aside id="sidebar" class="cf-sidebar" aria-label="Volet latéral"></aside>
+        <main id="viewport" class="cf-viewport" aria-label="Vue 3D"></main>
+      </div>
+      <footer id="statusbar" class="cf-statusbar"></footer>
     </div>
-    <div id="scrim" class="cf-scrim"></div>
     <div id="toasts" class="cf-toasts" aria-live="polite"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

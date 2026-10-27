@@ -58,9 +58,9 @@ export function numberControl(
   const resetBtn = h('button', { class: 'cf-reset', title: 'Revenir à la valeur du preset', attrs: { type: 'button' } }, [icon('reset', 'w-3 h-3')]);
   const label = h('label', { class: 'cf-label', text: def.label, title: def.hint, attrs: { for: id } });
   const unit = h('span', { class: 'cf-unit', text: def.unit ?? '' });
-  const el = h('div', { class: 'cf-row', title: def.hint }, [
-    h('div', { class: 'cf-row-head' }, [label, resetBtn]),
-    h('div', { class: 'cf-row-body' }, [range, h('div', { class: 'cf-num-wrap' }, [num, unit])]),
+  const el = h('div', { class: 'cf-row', title: def.hint, attrs: { 'data-label': def.label } }, [
+    h('div', { class: 'cf-row-head' }, [label, resetBtn, h('div', { class: 'cf-num-wrap' }, [num, unit])]),
+    range,
   ]);
 
   const refresh = () => {
@@ -113,7 +113,7 @@ export function selectControl(
   isModified: () => boolean = () => false,
 ): Control {
   const sel = h('select', { class: 'cf-select', attrs: { 'aria-label': label } }, options.map((o) => h('option', { text: o.label, attrs: { value: o.value } })));
-  const el = h('div', { class: 'cf-row cf-row-inline', title: hint }, [h('span', { class: 'cf-label', text: label }), sel]);
+  const el = h('div', { class: 'cf-row cf-row-inline', title: hint, attrs: { 'data-label': label } }, [h('span', { class: 'cf-label', text: label }), sel]);
   const refresh = () => {
     sel.value = get();
     el.classList.toggle('is-modified', isModified());
@@ -128,7 +128,7 @@ export function selectControl(
 
 export function toggleControl(label: string, hint: string, get: () => boolean, set: (v: boolean) => void): Control {
   const input = h('input', { class: 'cf-switch', attrs: { type: 'checkbox', role: 'switch', 'aria-label': label } });
-  const el = h('label', { class: 'cf-row cf-row-inline cursor-pointer', title: hint }, [h('span', { class: 'cf-label', text: label }), input]);
+  const el = h('label', { class: 'cf-row cf-row-inline cursor-pointer', title: hint, attrs: { 'data-label': label } }, [h('span', { class: 'cf-label', text: label }), input]);
   const refresh = () => {
     input.checked = get();
   };
@@ -137,14 +137,19 @@ export function toggleControl(label: string, hint: string, get: () => boolean, s
   return { el, refresh };
 }
 
-export function segmented<T extends string>(
-  options: { value: T; label: string; title?: string }[],
-  get: () => T,
-  set: (v: T) => void,
-  cls = '',
-): Control {
+export interface SegOption<T extends string> {
+  value: T;
+  label: string;
+  title?: string;
+  icon?: string;
+}
+
+export function segmented<T extends string>(options: SegOption<T>[], get: () => T, set: (v: T) => void, cls = ''): Control {
   const buttons = options.map((o) =>
-    h('button', { class: 'cf-seg-btn', text: o.label, title: o.title ?? o.label, attrs: { type: 'button', 'data-value': o.value } }),
+    h('button', { class: 'cf-seg-btn', title: o.title ?? o.label, attrs: { type: 'button', 'data-value': o.value } }, [
+      o.icon ? icon(o.icon, 'w-3.5 h-3.5 shrink-0') : null,
+      h('span', { class: 'cf-seg-text', text: o.label }),
+    ]),
   );
   const el = h('div', { class: `cf-seg ${cls}`, attrs: { role: 'group' } }, buttons);
   const refresh = () => {

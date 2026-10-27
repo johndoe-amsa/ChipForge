@@ -150,8 +150,14 @@ export class App {
     this.requestRegen(0);
   }
 
-  resetParams(): void {
-    this.state.params = { ...this.state.base };
+  /** Remet les paramètres (tous, ou seulement `keys`) aux valeurs du preset. */
+  resetParams(keys?: (keyof ChipParams)[]): void {
+    const s = this.state;
+    if (keys) {
+      const next = { ...s.params } as Record<keyof ChipParams, unknown>;
+      for (const k of keys) next[k] = s.base[k];
+      s.params = next as ChipParams;
+    } else s.params = { ...s.base };
     this.emit('params');
     this.requestRegen(0);
   }
