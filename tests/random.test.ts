@@ -3,6 +3,7 @@ import { parsePreset, serializePreset } from '../src/app/presetFile';
 import { DEFAULT_PARAMS, PARAM_DEF_MAP, PARAM_DEFS, type NumberDef } from '../src/core/params';
 import { DEFAULT_PILE, DEFAULT_SELECTION, composePreset, varyParams } from '../src/core/presets/presets';
 import { drawParams, normalizeNumberRange, sanitizeRanges, type RandomSettings } from '../src/core/random';
+import { sliderExtent } from '../src/ui/controls';
 
 const base = composePreset(DEFAULT_SELECTION);
 const ranged = (mode: RandomSettings['mode'], variability = 0.5): RandomSettings => ({
@@ -84,10 +85,11 @@ describe('aléatoire par plages', () => {
 describe('plages dans les presets personnels', () => {
   it('sont enregistrées puis relues', () => {
     const random = ranged('ciblee', 0.3);
-    const text = serializePreset({ name: 'r', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 4, mode: 'unique', pile: DEFAULT_PILE, random, drawn: true });
+    const text = serializePreset({ name: 'r', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 4, mode: 'unique', pile: DEFAULT_PILE, random, drawn: true, solo: ['length'] });
     const p = parsePreset(text, DEFAULT_PARAMS, DEFAULT_SELECTION);
     expect(p.random).toEqual(random);
     expect(p.drawn).toBe(true);
+    expect(p.solo).toEqual(['length']);
   });
 
   it('un preset v1 reprend la variabilité du tas, sans plage', () => {
@@ -115,5 +117,56 @@ describe('plages dans les presets personnels', () => {
       burrSide: { kind: 'choice', options: ['A', 'B'] },
     });
     expect(sanitizeRanges('n’importe quoi')).toEqual({});
+  });
+});
+
+describe('tirage d’un seul paramètre (sel de la plage)', () => {
+  it('changer le sel ne change que ce paramètre', () => {
+    const ranges = {
+      length: { kind: 'number' as const, min: 15, max: 40 },
+      width: { kind: 'number' as const, min: 1, max: 2 },
+    };
+    for (const mode of ['globale', 'ciblee'] as const) {
+      const a = drawParams(base, 8, 0, { mode, variability: 0.5, ranges });
+      const b = drawParams(base, 8, 0, { mode, variability: 0.5, ranges: { ...ranges, length: { ...ranges.length, salt: 12345 } } });
+      expect(b.length).not.toBe(a.length);
+      expect({ ...b, length: 0 }).toEqual({ ...a, length: 0 });
+    }
+  });
+
+  it('le sel est relu à l’import, et ignoré s’il est invalide', () => {
+    expect(sanitizeRanges({ length: { min: 1, max: 2, salt: 77 } }).length).toEqual({ kind: 'number', min: 1, max: 2, salt: 77 });
+    expect(sanitizeRanges({ length: { min: 1, max: 2, salt: -3.5 } }).length).toEqual({ kind: 'number', min: 1, max: 2 });
+  });
+});
+
+describe('curseurs adaptés aux valeurs', () => {
+  const twist = PARAM_DEF_MAP.twist as NumberDef; // curseur −60…60 °/mm, saisie jusqu’à ±720
+  const span = (d: NumberDef) => d.max - d.min;
+
+  it('une valeur saisie au-delà élargit le curseur, sans dépasser les limites absolues', () => {
+    const e = sliderExtent(twist, [500]);
+    expect(e.max).toBeGreaterThan(500);
+    expect(e.max).toBeLessThanOrEqual(twist.hardMax);
+    expect(e.min).toBe(twist.min);
+    expect(sliderExtent(twist, [720]).max).toBe(twist.hardMax);
+    expect(sliderExtent(twist, [10])).toEqual(twist);
+  });
+
+  it('une plage au-delà des bornes garde deux poignées bien distinctes', () => {
+    const e = sliderExtent(twist, [700, 720], true);
+    expect(e.min).toBeLessThanOrEqual(700);
+    expect(e.max).toBeGreaterThanOrEqual(720);
+    expect((720 - 700) / span(e)).toBeGreaterThanOrEqual(0.12);
+  });
+
+  it('plage étroite sur un curseur logarithmique : zoom autour de la plage', () => {
+    const length = PARAM_DEF_MAP.length as NumberDef;
+    const e = sliderExtent(length, [20, 22], true);
+    expect(e.min).toBeLessThan(20);
+    expect(e.max).toBeGreaterThan(22);
+    expect(Math.log(22 / 20) / Math.log(e.max / e.min)).toBeGreaterThanOrEqual(0.12);
+    // Plage assez large : bornes par défaut conservées.
+    expect(sliderExtent(length, [5, 200], true)).toEqual(length);
   });
 });

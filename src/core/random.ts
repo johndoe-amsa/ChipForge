@@ -22,11 +22,14 @@ export interface NumberRange {
   kind: 'number';
   min: number;
   max: number;
+  /** Sel du tirage : le changer retire ce seul paramètre, sans toucher aux autres. */
+  salt?: number;
 }
 
 export interface ChoiceRange {
   kind: 'choice';
   options: string[];
+  salt?: number;
 }
 
 export type ParamRange = NumberRange | ChoiceRange;
@@ -64,6 +67,10 @@ export function normalizeChoiceRange(def: ParamDef, options: readonly unknown[])
   return kept.length ? { kind: 'choice', options: kept } : null;
 }
 
+function cleanSalt(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 4294967296 ? v : undefined;
+}
+
 /** Valide des plages d'origine non fiable (import de preset) : clés et valeurs connues uniquement. */
 export function sanitizeRanges(input: unknown): ParamRanges {
   const out: ParamRanges = {};
@@ -76,13 +83,17 @@ export function sanitizeRanges(input: unknown): ParamRanges {
     const o = r as Record<string, unknown>;
     if (def.kind === 'number') {
       const { min, max } = o;
-      if (typeof min === 'number' && typeof max === 'number' && Number.isFinite(min) && Number.isFinite(max)) out[def.key] = normalizeNumberRange(def, min, max);
+      if (typeof min === 'number' && typeof max === 'number' && Number.isFinite(min) && Number.isFinite(max)) out[def.key] = withSalt(normalizeNumberRange(def, min, max), cleanSalt(o.salt));
     } else if (Array.isArray(o.options)) {
       const c = normalizeChoiceRange(def, o.options);
-      if (c) out[def.key] = c;
+      if (c) out[def.key] = withSalt(c, cleanSalt(o.salt));
     }
   }
   return out;
+}
+
+export function withSalt<R extends ParamRange>(r: R, salt: number | undefined): R {
+  return salt ? { ...r, salt } : r;
 }
 
 /** Tire une valeur dans une plage. */
@@ -102,7 +113,7 @@ export function drawParams(base: ChipParams, seed: number, index: number, settin
   for (const [key, range] of Object.entries(settings.ranges) as [ParamKey, ParamRange][]) {
     const def = PARAM_DEF_MAP[key];
     if (!def || !range) continue;
-    const v = drawInRange(def, range, new Rng(hashSeed(seed, index, `plage:${key}`)));
+    const v = drawInRange(def, range, new Rng(hashSeed(seed, index, `plage:${key}`, range.salt ?? 0)));
     if (v !== undefined) out[key] = v;
   }
   return p;

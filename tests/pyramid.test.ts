@@ -77,7 +77,7 @@ describe('tas en pyramide : chute physique', () => {
 describe('tas en pyramide : presets', () => {
   it('relit le réceptacle pyramide, sa pente et un grand lot', () => {
     const pile = { ...DEFAULT_PILE, container: 'pyramide' as const, pyramidSlope: 55, count: MAX_PILE_COUNT, precision: 'precise' as const };
-    const txt = serializePreset({ name: 'p', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile, random: DEFAULT_RANDOM, drawn: false });
+    const txt = serializePreset({ name: 'p', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile, random: DEFAULT_RANDOM, drawn: false, solo: [] });
     expect(parsePreset(txt, DEFAULT_PARAMS, DEFAULT_SELECTION).pile).toEqual(pile);
     const bad = JSON.parse(txt);
     bad.pile = { ...bad.pile, pyramidSlope: 500, count: 1e6 };

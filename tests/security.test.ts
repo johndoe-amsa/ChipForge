@@ -90,7 +90,7 @@ describe('import de presets (données non fiables)', () => {
   const parse = (o: unknown) => parsePreset(typeof o === 'string' ? o : JSON.stringify(o), DEFAULT_PARAMS, DEFAULT_SELECTION);
 
   it('relit un preset exporté', () => {
-    const text = serializePreset({ name: 'Test', selection: DEFAULT_SELECTION, params: { ...DEFAULT_PARAMS, length: 42 }, seed: 7, mode: 'tas', pile: DEFAULT_PILE, random: DEFAULT_RANDOM, drawn: false });
+    const text = serializePreset({ name: 'Test', selection: DEFAULT_SELECTION, params: { ...DEFAULT_PARAMS, length: 42 }, seed: 7, mode: 'tas', pile: DEFAULT_PILE, random: DEFAULT_RANDOM, drawn: false, solo: [] });
     const p = parse(text);
     expect(p.params.length).toBe(42);
     expect(p.seed).toBe(7);
