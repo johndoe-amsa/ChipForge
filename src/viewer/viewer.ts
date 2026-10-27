@@ -173,7 +173,7 @@ export class Viewer {
   }
 
   /** Copeaux fantômes de l'aperçu de plage, placés comme le copeau affiché ; [] les retire. */
-  setGhosts(meshes: ChipMesh[], transform: RigidTransform | null): void {
+  setGhosts(meshes: ChipMesh[], transform: RigidTransform | null, visible = 0): void {
     for (const ch of this.ghostGroup.children) (ch as THREE.Mesh).geometry.dispose();
     this.ghostGroup.clear();
     meshes.forEach((m, i) => {
@@ -183,8 +183,15 @@ export class Viewer {
         mesh.matrixAutoUpdate = false;
         mesh.matrix.compose(new THREE.Vector3(...transform.t), new THREE.Quaternion(...transform.q), new THREE.Vector3(1, 1, 1));
       }
+      mesh.visible = i === visible;
       this.ghostGroup.add(mesh);
     });
+    this.needsRender = true;
+  }
+
+  /** N'affiche que le fantôme d'indice `i` (0 = minimum, 1 = maximum). */
+  showGhost(i: number): void {
+    this.ghostGroup.children.forEach((g, k) => (g.visible = k === i));
     this.needsRender = true;
   }
 
@@ -285,6 +292,7 @@ export class Viewer {
     }
     if (this.binGroup.children.length) box.union(new THREE.Box3().setFromObject(this.binGroup));
     for (const g of this.ghostGroup.children as THREE.Mesh[]) {
+      if (!g.visible) continue;
       g.geometry.computeBoundingBox();
       box.union(g.geometry.boundingBox!.clone().applyMatrix4(g.matrix));
     }

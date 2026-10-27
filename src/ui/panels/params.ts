@@ -43,8 +43,11 @@ function paramControl(app: App, key: ParamKey): Control {
         drawn: () => app.drawnValue(key) as number | undefined,
         freeze: () => app.freezeParam(key),
         reroll: () => app.rerollParam(key),
-        preview: () => ({ on: app.rangePreview === key, available: app.state.mode === 'unique' }),
+        preview: () => ({ on: app.rangePreview === key, available: app.state.mode === 'unique', side: app.previewSide }),
         setPreview: (on) => app.setRangePreview(on ? key : null),
+        setPreviewSide: (side) => {
+          if (app.rangePreview === key) app.setPreviewSide(side);
+        },
       },
     );
   }

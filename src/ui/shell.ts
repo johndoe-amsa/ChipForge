@@ -376,11 +376,21 @@ function buildViewportOverlay(app: App, root: HTMLElement): void {
   const pvMax = h('span', { class: 'cf-pv-v' });
   const pvClose = h('button', { class: 'cf-pv-close', title: 'Masquer l’aperçu', attrs: { type: 'button', 'aria-label': 'Masquer l’aperçu de plage' } }, [icon('close', 'w-3.5 h-3.5')]);
   pvClose.addEventListener('click', () => app.setRangePreview(null));
+  const pvSide = (side: 'min' | 'max', v: HTMLElement) => {
+    const b = h('button', { class: 'cf-pv-item', title: `Montrer le copeau au ${side === 'min' ? 'minimum' : 'maximum'} de la plage`, attrs: { type: 'button' } }, [
+      h('span', { class: `cf-pv-dot cf-pv-${side}` }),
+      h('span', { text: side }),
+      v,
+    ]);
+    b.addEventListener('click', () => app.setPreviewSide(side));
+    return b;
+  };
+  const pvMinBtn = pvSide('min', pvMin);
+  const pvMaxBtn = pvSide('max', pvMax);
   const pvLegend = h('div', { class: 'cf-pv' }, [
     icon('eye', 'w-3.5 h-3.5 shrink-0'),
     pvName,
-    h('span', { class: 'cf-pv-item' }, [h('span', { class: 'cf-pv-dot cf-pv-min' }), h('span', { text: 'min' }), pvMin]),
-    h('span', { class: 'cf-pv-item' }, [h('span', { class: 'cf-pv-dot cf-pv-max' }), h('span', { text: 'max' }), pvMax]),
+    h('span', { class: 'cf-pv-sides', attrs: { role: 'group', 'aria-label': 'Extrême montré' } }, [pvMinBtn, pvMaxBtn]),
     pvClose,
   ]);
   root.append(progress, toolbar, pvLegend, staleBtn);
@@ -409,6 +419,10 @@ function buildViewportOverlay(app: App, root: HTMLElement): void {
       pvName.textContent = pdef.label;
       pvMin.textContent = `${formatValue(pdef, pr.min)}${u}`;
       pvMax.textContent = `${formatValue(pdef, pr.max)}${u}`;
+      for (const [b, side] of [[pvMinBtn, 'min'], [pvMaxBtn, 'max']] as const) {
+        b.classList.toggle('is-active', app.previewSide === side);
+        b.setAttribute('aria-pressed', String(app.previewSide === side));
+      }
     }
   };
   app.on(refresh);

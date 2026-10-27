@@ -46,9 +46,10 @@ Panneau **Aléatoire** (icône 🎲) :
   l'ordre ; min = max : valeur fixe.
 
 Sous chaque paramètre en plage :
-- **Aperçu** (copeau unique) : le copeau est montré en transparence au **minimum** (bleu) et au **maximum** (orange) de
-  la plage, par-dessus le copeau affiché, et suit les poignées en direct. Activé d'office à la création d'une plage ;
-  une légende dans la vue rappelle les bornes (× pour la masquer).
+- **Aperçu** (copeau unique) : le copeau est montré en transparence, par-dessus le copeau affiché, au **minimum**
+  (bleu) **ou** au **maximum** (orange) de la plage — un seul à la fois, pour rester lisible. L'extrême montré suit la
+  dernière poignée (ou le dernier champ) touché et se met à jour en direct ; la légende dans la vue permet aussi de
+  basculer *min / max* (× pour la masquer). Activé d'office à la création d'une plage.
 - **Tirer** : nouveau tirage de **ce seul paramètre** dans sa plage ; tous les autres réglages restent tels quels
   (en mode tas, le tas est régénéré). Pour tout tirer, `R` ou le panneau Aléatoire.
 

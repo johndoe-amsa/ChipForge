@@ -48,9 +48,10 @@ export interface NumberRandom {
   freeze(): void;
   /** Nouveau tirage de ce seul paramètre. */
   reroll(): void;
-  /** Aperçu des extrêmes en transparence : actif, et disponible (copeau unique). */
-  preview(): { on: boolean; available: boolean };
+  /** Aperçu d'un extrême en transparence : actif, disponible (copeau unique), extrême montré. */
+  preview(): { on: boolean; available: boolean; side: 'min' | 'max' };
   setPreview(on: boolean): void;
+  setPreviewSide(side: 'min' | 'max'): void;
 }
 
 /** Aléatoire d'une liste : tirage parmi les options retenues. */
@@ -262,6 +263,13 @@ export function numberControl(
     hi.addEventListener('input', () => onSlide('hi'));
     // Fin du glisser : les bornes du curseur s'adaptent à la nouvelle plage.
     for (const inp of [lo, hi]) inp.addEventListener('change', () => queueMicrotask(() => rangeRefresh()));
+    // L'aperçu montre l'extrême de la dernière poignée (ou du dernier champ) touché.
+    for (const [els, side] of [[[lo, minIn], 'min'], [[hi, maxIn], 'max']] as const) {
+      for (const e of els) {
+        e.addEventListener('pointerdown', () => random.setPreviewSide(side));
+        e.addEventListener('focus', () => random.setPreviewSide(side));
+      }
+    }
     const commitFields = () => {
       const a = Number(minIn.value.replace(',', '.'));
       const b = Number(maxIn.value.replace(',', '.'));
@@ -307,6 +315,8 @@ export function numberControl(
       scale.el.hidden = scale.el.hidden || !!r;
       const pv = random.preview();
       el.classList.toggle('is-previewing', !!r && pv.on);
+      el.classList.toggle('is-pv-min', !!r && pv.on && pv.side === 'min');
+      el.classList.toggle('is-pv-max', !!r && pv.on && pv.side === 'max');
       if (actions.preview) {
         actions.preview.classList.toggle('is-active', pv.on);
         actions.preview.setAttribute('aria-pressed', String(pv.on));
@@ -314,7 +324,7 @@ export function numberControl(
         actions.preview.title = pv.available
           ? pv.on
             ? 'Masquer l’aperçu des extrêmes'
-            : 'Montrer en transparence le copeau au minimum (bleu) et au maximum (orange) de la plage'
+            : 'Montrer en transparence le copeau au minimum (bleu) ou au maximum (orange) de la plage, selon la poignée touchée'
           : 'Aperçu disponible en mode copeau unique';
       }
       const d = random.drawn();

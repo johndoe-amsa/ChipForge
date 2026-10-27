@@ -92,6 +92,8 @@ export class App {
   drawnParams: ChipParams[] = [];
   /** Aperçu de plage : paramètre dont les extrêmes sont montrés en transparence (copeau unique). */
   rangePreview: ParamKey | null = null;
+  /** Extrême montré par l'aperçu : un seul fantôme à la fois, plus lisible. */
+  previewSide: 'min' | 'max' = 'max';
   private ghostTimer: ReturnType<typeof setTimeout> | undefined;
   private ghostToken = 0;
   transforms: RigidTransform[] = [];
@@ -372,7 +374,15 @@ export class App {
 
   // ------------------------------------------------------------ aperçu de plage
 
-  /** Montre (ou masque avec null) les extrêmes de la plage d'un paramètre en transparence. */
+  /** Extrême de la plage montré en transparence ; suit la dernière poignée touchée. */
+  setPreviewSide(side: 'min' | 'max'): void {
+    if (side === this.previewSide) return;
+    this.previewSide = side;
+    this.viewer.showGhost(side === 'min' ? 0 : 1);
+    this.emit('random');
+  }
+
+  /** Montre (ou masque avec null) un extrême de la plage d'un paramètre en transparence. */
   setRangePreview(key: ParamKey | null): void {
     if (key && PARAM_DEF_MAP[key]?.kind !== 'number') key = null;
     if (key === this.rangePreview) return;
@@ -382,8 +392,9 @@ export class App {
   }
 
   /**
-   * Fantômes de l'aperçu de plage : le copeau affiché, avec le paramètre au minimum puis au
-   * maximum de sa plage. Calculés par un worker dédié, sans interrompre l'aperçu principal.
+   * Fantômes de l'aperçu de plage : le copeau affiché, avec le paramètre au minimum et au
+   * maximum de sa plage. Les deux sont calculés (par un worker dédié, sans interrompre
+   * l'aperçu principal) ; un seul est affiché, et passer de l'un à l'autre est immédiat.
    */
   private scheduleGhosts(delay = 60): void {
     clearTimeout(this.ghostTimer);
@@ -407,7 +418,7 @@ export class App {
       return;
     }
     if (!res || token !== this.ghostToken) return;
-    this.viewer.setGhosts(res.meshes, this.transforms[0] ?? null);
+    this.viewer.setGhosts(res.meshes, this.transforms[0] ?? null, this.previewSide === 'min' ? 0 : 1);
   }
 
   setPile(p: Partial<PileSettings>): void {
