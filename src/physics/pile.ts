@@ -11,6 +11,33 @@ import { pyramidGeometry, pyramidPoint, type PyramidGeometry } from '../core/pyr
  * Pas de temps fixe et nombre de pas indépendant de l'affichage : même seed → même tas.
  */
 
+/**
+ * Précision de la simulation :
+ * - rapide : pavés de collision regroupés pour les grands lots, tas jugé immobile quand 98 % des
+ *   copeaux le sont, pyramide démoulée vite (fort amortissement) ;
+ * - precise : pavés d'origine quel que soit le lot, plus d'itérations du solveur, attente de
+ *   l'immobilité de tous les copeaux, tassement plus long et non amorti de la pyramide.
+ */
+export type SimPrecision = 'rapide' | 'precise';
+
+interface SimProfile {
+  group: (n: number) => number;
+  iterations: number;
+  /** Part des copeaux qui peuvent encore bouger dans un tas jugé immobile. */
+  settleFraction: number;
+  heapSteps: number;
+  fillSteps: number;
+  moldSteps: number;
+  freeSteps: number;
+  /** Amortissements (linéaire, angulaire) après le retournement de la pyramide. */
+  moldDamping: [number, number];
+}
+
+const SIM_PROFILES: Record<SimPrecision, SimProfile> = {
+  rapide: { group: colliderGroup, iterations: 6, settleFraction: 0.02, heapSteps: 1500, fillSteps: 1500, moldSteps: 300, freeSteps: 300, moldDamping: [2, 4] },
+  precise: { group: () => 1, iterations: 8, settleFraction: 0, heapSteps: 2400, fillSteps: 2200, moldSteps: 600, freeSteps: 600, moldDamping: [0.15, 1.4] },
+};
+
 export interface PileOptions {
   seed: number;
   /** Rayon de la zone de chute (mm) ; 0 = automatique. Ignoré avec un bac. */
@@ -19,6 +46,8 @@ export interface PileOptions {
   bin?: BinGeometry | null;
   /** Tas en pyramide : pente des faces (degrés), ou null. Ignoré avec un bac. */
   pyramid?: number | null;
+  /** Précision de la simulation (défaut : rapide). */
+  precision?: SimPrecision;
   onFrame?: (transforms: RigidTransform[], progress: number) => void;
   signal?: { cancelled: boolean };
 }
@@ -101,10 +130,11 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
   // Normalisation : un copeau médian mesure ~1 unité (zone de confort du solveur).
   const k = 0.5 / median;
   const minHalf = 0.012;
+  const prof = SIM_PROFILES[opt.precision ?? 'rapide'];
 
   const world = new R.World({ x: 0, y: -9.81, z: 0 });
   world.integrationParameters.dt = 1 / 120;
-  world.integrationParameters.numSolverIterations = 6;
+  world.integrationParameters.numSolverIterations = prof.iterations;
 
   const ground = world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(0, -0.5, 0));
   world.createCollider(R.ColliderDesc.cuboid(500, 0.5, 500).setFriction(0.8), ground);
@@ -131,8 +161,9 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
   const spreadN = opt.spread > 0 ? opt.spread * k : Math.max(0.8, meanR * k * Math.sqrt(n) * 0.38);
   const binN = opt.bin ? { ...opt.bin, length: opt.bin.length * k, width: opt.bin.width * k } : null;
   const placed: { x: number; y: number; z: number; r: number }[] = [];
-  // Grands lots : pavés de collision regroupés (le coût d'un pas croît avec le nombre de contacts).
-  const group = colliderGroup(n);
+  // Grands lots en simulation rapide : pavés de collision regroupés (le coût d'un pas croît avec
+  // le nombre de contacts).
+  const group = prof.group(n);
   // Tas en pyramide, moulé comme un pâté de sable : les copeaux remplissent d'abord une trémie
   // pyramidale (moule tête en bas), puis le contenu est retourné d'un demi-tour autour de X
   // (rotation, pas symétrie : les copeaux ne changent pas de sens d'enroulement), se tasse contre
@@ -187,11 +218,9 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
 
   // Pyramide : remplissage de la trémie, retournement et tassement dans le moule, démoulage.
   let phase: 'tremie' | 'moule' | 'libre' = pyr ? 'tremie' : 'libre';
-  const fillSteps = 1500;
-  const moldSteps = 300;
-  const freeSteps = 300;
-  let phaseEnd = pyr ? fillSteps : 1500;
-  const maxSteps = pyr ? fillSteps + moldSteps + freeSteps : 1500;
+  const { fillSteps, moldSteps, freeSteps } = prof;
+  let phaseEnd = pyr ? fillSteps : prof.heapSteps;
+  const maxSteps = pyr ? fillSteps + moldSteps + freeSteps : prof.heapSteps;
   const flip = () => {
     // Le point le plus haut du remplissage devient la base, posée sur la grille.
     let top = 0;
@@ -203,9 +232,9 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
       b.setRotation({ x: q.w, y: -q.z, z: q.y, w: -q.x }, false);
       b.setLinvel({ x: 0, y: 0, z: 0 }, false);
       b.setAngvel({ x: 0, y: 0, z: 0 }, false);
-      // Le tas moulé n'a plus qu'à se tasser : amortissement fort, il s'immobilise vite.
-      b.setLinearDamping(2);
-      b.setAngularDamping(4);
+      // Simulation rapide : le tas moulé n'a plus qu'à se tasser, amortissement fort.
+      b.setLinearDamping(prof.moldDamping[0]);
+      b.setAngularDamping(prof.moldDamping[1]);
       b.wakeUp();
     }
     world.removeRigidBody(mold!);
@@ -242,7 +271,7 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
           const w = b.angvel();
           if (Math.hypot(v.x, v.y, v.z) > 0.01 || Math.hypot(w.x, w.y, w.z) > 0.05) moving++;
         }
-        settled = moving <= 0.02 * n;
+        settled = moving <= prof.settleFraction * n;
       }
       if (phase !== 'libre' && (settled || step >= phaseEnd)) {
         if (phase === 'tremie') {

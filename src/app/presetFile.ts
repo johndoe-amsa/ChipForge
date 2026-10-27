@@ -77,6 +77,7 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
     variability: num(own(pr, 'variability'), 0, 1, DEFAULT_PILE.variability),
     spread: num(own(pr, 'spread'), 0, 2000, DEFAULT_PILE.spread),
     physics: bool(own(pr, 'physics'), DEFAULT_PILE.physics),
+    precision: own(pr, 'precision') === 'precise' ? 'precise' : 'rapide',
     container: own(pr, 'container') === 'bac' ? 'bac' : own(pr, 'container') === 'pyramide' ? 'pyramide' : 'sol',
     pyramidSlope: num(own(pr, 'pyramidSlope'), PYRAMID_SLOPE_RANGE[0], PYRAMID_SLOPE_RANGE[1], DEFAULT_PILE.pyramidSlope),
     binLength: num(own(pr, 'binLength'), 0, 2000, DEFAULT_PILE.binLength),

@@ -278,6 +278,15 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
   const binInfo = h('p', { class: 'cf-hint' });
   const exportBin = toggleControl('Exporter le bac', 'Ajoute le bac (objet « bac ») aux exports OBJ et STEP, à sa place sous le tas.', () => app.state.pile.exportBin, (v) => app.setPile({ exportBin: v }));
   const binBody = h('div', {}, [binL.el, binW.el, binH.el, binInfo, exportBin.el]);
+  const precision = segmented(
+    [
+      { value: 'rapide', label: 'Rapide', title: 'Grands lots : collisions simplifiées, arrêt dès que le tas est presque immobile' },
+      { value: 'precise', label: 'Précise', title: 'Collisions complètes, arrêt quand tous les copeaux sont immobiles (plus lent)' },
+    ],
+    () => app.state.pile.precision,
+    (v) => app.setPile({ precision: v }),
+  );
+  const precisionWrap = h('div', { class: 'cf-field' }, [h('div', { class: 'cf-label', text: 'Simulation' }), precision.el]);
   // --- Pyramide
   const defSlope: NumberDef = {
     ...defCount,
@@ -309,7 +318,7 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
   rerun.addEventListener('click', () => app.rerollSeed());
   const staleNote = h('p', { class: 'cf-hint cf-stale-note', text: 'Réglages modifiés : le tas affiché ne les reflète pas encore.' });
   const pileField = (label: string, el: HTMLElement) => h('div', { class: 'cf-field' }, [h('div', { class: 'cf-label', text: label }), el]);
-  const pileBody = h('div', {}, [count.el, variab.el, pileField('Réceptacle', container.el), spreadWrap, binBody, pyrBody, physics.el, staleNote, generate, rerun]);
+  const pileBody = h('div', {}, [count.el, variab.el, pileField('Réceptacle', container.el), spreadWrap, binBody, pyrBody, physics.el, precisionWrap, staleNote, generate, rerun]);
   const pileOff = h('div', {}, [pileIntro, toPile]);
   const pileSec = section('Mode tas', true, [pileOff, pileBody], 'Lot de copeaux et dispersion contrôlée');
 
@@ -408,6 +417,8 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     variab.refresh();
     spread.refresh();
     physics.refresh();
+    precision.refresh();
+    precisionWrap.hidden = !app.state.pile.physics;
     container.refresh();
     const inBin = app.state.pile.container === 'bac';
     const inPyr = app.state.pile.container === 'pyramide';

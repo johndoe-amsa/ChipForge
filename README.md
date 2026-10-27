@@ -65,9 +65,14 @@ ne relance pas le calcul, qui peut être long pour un grand lot. Le tas affiché
 tire une nouvelle seed et relance aussitôt. L'export est refusé tant que le tas affiché ne correspond pas aux réglages.
 En copeau unique, l'aperçu reste instantané.
 
-**Grands lots** : au-delà de 120 copeaux, les pavés de collision de chaque copeau sont regroupés par 2 (jusqu'à 400)
-puis par 3 (enveloppe un peu plus large, contacts beaucoup moins nombreux) ; le tas est jugé immobile quand 98 % des
-copeaux le sont, et la physique garde environ deux tiers du temps de calcul même si l'affichage du tas est lent.
+**Simulation *Rapide* / *Précise*** (réglage du tas) :
+- *Rapide* (défaut) : au-delà de 120 copeaux, les pavés de collision de chaque copeau sont regroupés par 2 (jusqu'à 400)
+  puis par 3 (enveloppe un peu plus large, contacts beaucoup moins nombreux) ; le tas est jugé immobile quand 98 % des
+  copeaux le sont ; la pyramide est démoulée vite, avec un fort amortissement.
+- *Précise* : pavés d'origine quel que soit le lot, plus d'itérations du solveur, attente de l'immobilité de tous les
+  copeaux, tassement plus long et non amorti de la pyramide.
+
+Dans les deux cas, la physique garde environ deux tiers du temps de calcul même si l'affichage du tas est lent.
 
 
 Les copeaux tombent en monticule sur la grille ou, avec *Réceptacle : Dans un bac*, dans un bac rectangulaire ouvert

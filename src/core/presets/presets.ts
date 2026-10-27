@@ -428,6 +428,8 @@ export interface PileSettings {
   /** Rayon de la zone de chute (mm). 0 = automatique. */
   spread: number;
   physics: boolean;
+  /** Simulation physique rapide (grands lots) ou précise. */
+  precision: 'rapide' | 'precise';
   /** Réceptacle : chute sur la grille, dans un bac à copeaux, ou tas en pyramide. */
   container: Container;
   /** Pente des faces du tas en pyramide (degrés). */
@@ -445,6 +447,7 @@ export const DEFAULT_PILE: PileSettings = {
   variability: 0.5,
   spread: 0,
   physics: true,
+  precision: 'rapide',
   container: 'sol',
   pyramidSlope: 40,
   binLength: 0,

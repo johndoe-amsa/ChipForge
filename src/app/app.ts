@@ -212,7 +212,7 @@ export class App {
     // Exporter ou non le bac ne change pas la scène.
     const keys = Object.keys(p).filter((k) => k !== 'exportBin');
     if (this.state.mode === 'tas' && keys.length) {
-      if (keys.some((k) => k !== 'variability' && k !== 'physics')) this.refit = true;
+      if (keys.some((k) => k !== 'variability' && k !== 'physics' && k !== 'precision')) this.refit = true;
       this.requestRegen();
     }
   }
@@ -352,6 +352,7 @@ export class App {
         spread: pile.spread,
         bin: this.bin,
         pyramid: slope,
+        precision: pile.precision,
         signal,
         onFrame: (tr, progress) => {
           if (signal.cancelled) return;

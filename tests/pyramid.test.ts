@@ -59,6 +59,13 @@ describe('tas en pyramide : chute physique', () => {
     expect(again).toEqual(pyr);
   }, 120000);
 
+  it('en simulation précise, forme aussi une pyramide, de façon déterministe', async () => {
+    const pyr = await simulatePile(meshes, { seed: 3, spread: 0, pyramid: 45, precision: 'precise' });
+    expect(aspect(pyr)).toBeGreaterThan(0.6);
+    for (const t of pyr) expect(t.t[1]).toBeGreaterThan(-1e-3);
+    expect(await simulatePile(meshes, { seed: 3, spread: 0, pyramid: 45, precision: 'precise' })).toEqual(pyr);
+  }, 180000);
+
   it('sans physique, range les copeaux dans la pyramide', () => {
     const tr = scatterPile(meshes, 3, 0, null, 45);
     expect(tr.length).toBe(meshes.length);
@@ -68,7 +75,7 @@ describe('tas en pyramide : chute physique', () => {
 
 describe('tas en pyramide : presets', () => {
   it('relit le réceptacle pyramide, sa pente et un grand lot', () => {
-    const pile = { ...DEFAULT_PILE, container: 'pyramide' as const, pyramidSlope: 55, count: MAX_PILE_COUNT };
+    const pile = { ...DEFAULT_PILE, container: 'pyramide' as const, pyramidSlope: 55, count: MAX_PILE_COUNT, precision: 'precise' as const };
     const txt = serializePreset({ name: 'p', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile });
     expect(parsePreset(txt, DEFAULT_PARAMS, DEFAULT_SELECTION).pile).toEqual(pile);
     const bad = JSON.parse(txt);
