@@ -1,11 +1,12 @@
 import type { App } from '../../app/app';
 import { PARAM_DEFS, PARAM_DEF_MAP, SECTIONS, clampParam, type ChipParams, type NumberDef, type ParamKey, type SectionId } from '../../core/params';
 import { h } from '../dom';
+import { normalizeChoiceRange, normalizeNumberRange } from '../../core/random';
 import { numberControl, selectControl, toggleControl, type Control } from '../controls';
 import { section, button, type Section } from '../widgets';
 import type { PanelDef } from './panel';
 
-const SECTION_ICON: Record<SectionId, string> = {
+export const SECTION_ICON: Record<SectionId, string> = {
   macro: 'coil',
   section: 'section',
   profil: 'taper',
@@ -24,6 +25,7 @@ const TABS: { id: string; icon: string; label: string; subtitle: string; section
 
 function paramControl(app: App, key: ParamKey): Control {
   const def = PARAM_DEF_MAP[key];
+  const range = () => app.state.random.ranges[key];
   if (def.kind === 'number') {
     return numberControl(
       def,
@@ -31,12 +33,38 @@ function paramControl(app: App, key: ParamKey): Control {
       (v) => app.setParam(key, clampParam(def as NumberDef, v) as ChipParams[typeof key]),
       () => app.isModified(key),
       () => app.setParam(key, app.state.base[key]),
+      undefined,
+      {
+        range: () => {
+          const r = range();
+          return r?.kind === 'number' ? r : undefined;
+        },
+        setRange: (r) => app.setRange(key, r ? normalizeNumberRange(def, r.min, r.max) : undefined),
+        drawn: () => app.drawnValue(key) as number | undefined,
+        freeze: () => app.freezeParam(key),
+      },
     );
   }
   if (def.kind === 'bool') {
     return toggleControl(def.label, def.hint, () => app.state.params[key] as boolean, (v) => app.setParam(key, v as ChipParams[typeof key]));
   }
-  return selectControl(def.label, def.hint, def.options, () => String(app.state.params[key]), (v) => app.setParam(key, v as ChipParams[typeof key]), () => app.isModified(key));
+  return selectControl(
+    def.label,
+    def.hint,
+    def.options,
+    () => String(app.state.params[key]),
+    (v) => app.setParam(key, v as ChipParams[typeof key]),
+    () => app.isModified(key),
+    {
+      options: () => {
+        const r = range();
+        return r?.kind === 'choice' ? r.options : undefined;
+      },
+      setOptions: (o) => app.setRange(key, (o && normalizeChoiceRange(def, o)) || undefined),
+      drawn: () => app.drawnValue(key) as string | undefined,
+      freeze: () => app.freezeParam(key),
+    },
+  );
 }
 
 /** Onglets Géométrie, Surface et Couleurs : paramètres du copeau par sections repliables. */
@@ -49,6 +77,7 @@ export function buildParamPanels(app: App): PanelDef[] {
       const defs = PARAM_DEFS.filter((d) => d.section === id);
       const items = defs.map((d) => {
         const c = paramControl(app, d.key);
+        c.el.dataset.key = d.key;
         controls.push(c);
         return c.el;
       });
@@ -64,7 +93,7 @@ export function buildParamPanels(app: App): PanelDef[] {
       reset.disabled = modified() === 0;
     };
     app.on((what) => {
-      if (what.has('params') || what.has('preset')) refresh();
+      if (what.has('params') || what.has('preset') || what.has('random') || what.has('meshes')) refresh();
     });
     refresh();
 

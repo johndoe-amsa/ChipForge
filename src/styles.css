@@ -21,6 +21,10 @@
   --ok: #e8c547;
   --bad: #f0566b;
   --warn-text: #f2c46d;
+  /* Aléatoire (plages, valeurs tirées) */
+  --rand: #b592ff;
+  --rand-soft: rgb(181 146 255 / 0.13);
+  --rand-line: rgb(181 146 255 / 0.5);
   --radius: 6px;
   --radius-lg: 10px;
   --rail-w: 64px;
@@ -1061,6 +1065,295 @@ body.sidebar-collapsed .cf-sidebar {
 .cf-field-label {
   font-size: 12px;
   color: var(--text-2);
+}
+
+/* ================================================================== Aléatoire : plages sur les lignes */
+.cf-dice {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--text-3);
+  flex: none;
+  opacity: 0.55;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+}
+.cf-row:hover .cf-dice,
+.cf-dice:focus-visible {
+  opacity: 1;
+}
+.cf-dice:hover {
+  color: var(--rand);
+  background: var(--rand-soft);
+}
+.cf-dice.is-active {
+  opacity: 1;
+  color: var(--rand);
+  background: var(--rand-soft);
+  box-shadow: inset 0 0 0 1px var(--rand-line);
+}
+.cf-row.is-ranged .cf-label {
+  color: var(--rand);
+}
+.cf-row.is-ranged .cf-reset {
+  display: none;
+}
+.cf-row-select .cf-select {
+  flex: none;
+  max-width: 150px;
+}
+.cf-range-fields {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+.cf-range-fields > .cf-unit {
+  padding: 0 0 0 2px;
+  min-width: 0;
+}
+.cf-num-sm {
+  width: 62px;
+}
+.cf-num-sm .cf-num {
+  padding: 0 6px;
+}
+.cf-row.is-ranged .cf-num-wrap {
+  border-color: var(--rand-line);
+}
+.cf-range-dash {
+  color: var(--text-3);
+}
+
+/* Curseur à deux poignées : deux curseurs superposés, seules les poignées captent la souris. */
+.cf-dual {
+  position: relative;
+  height: 16px;
+  margin-top: 3px;
+}
+.cf-dual-track,
+.cf-dual-fill {
+  position: absolute;
+  top: 6.5px;
+  height: 3px;
+  border-radius: 2px;
+}
+.cf-dual-track {
+  left: 0;
+  right: 0;
+  background: var(--surface-4);
+}
+.cf-dual-fill {
+  background: var(--rand);
+  margin: 0 6px;
+}
+.cf-dual-input {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.cf-dual-input::-webkit-slider-runnable-track {
+  height: 3px;
+  background: transparent;
+}
+.cf-dual-input::-moz-range-track {
+  height: 3px;
+  background: transparent;
+}
+.cf-dual-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--rand);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--rand-line);
+}
+.cf-dual-input::-moz-range-thumb {
+  pointer-events: auto;
+  cursor: pointer;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rand);
+  border: 2px solid var(--surface);
+}
+
+.cf-drawn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.cf-drawn > svg {
+  color: var(--rand);
+}
+.cf-drawn-v {
+  color: var(--rand);
+  font-family: var(--mono);
+}
+.cf-drawn-freeze {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+.cf-drawn-freeze:hover {
+  color: var(--text);
+  border-color: var(--rand-line);
+  background: var(--rand-soft);
+}
+.cf-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.cf-choice {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--border-3);
+  color: var(--text-3);
+  font-size: 11px;
+}
+.cf-choice:hover {
+  color: var(--text);
+}
+.cf-choice.is-active {
+  border-style: solid;
+  border-color: var(--rand-line);
+  background: var(--rand-soft);
+  color: var(--text);
+}
+@keyframes cf-flash {
+  from {
+    background: var(--rand-soft);
+    box-shadow: 0 0 0 6px var(--rand-soft);
+  }
+}
+.cf-row.is-flash {
+  border-radius: 4px;
+  animation: cf-flash 1.4s ease-out;
+}
+
+/* ================================================================== Panneau Aléatoire */
+.cf-hint-after {
+  margin: 8px 0 4px;
+}
+.cf-draw-state {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cf-draw-state.is-active {
+  border-color: var(--rand-line);
+  background: var(--rand-soft);
+  color: var(--text);
+}
+.cf-section-body > .cf-foot-row {
+  margin-top: 6px;
+}
+.cf-section-body > .cf-foot-row .cf-btn {
+  flex: 1 1 0;
+}
+.cf-ranges {
+  display: grid;
+  gap: 4px;
+}
+.cf-ranges:empty {
+  display: none;
+}
+.cf-range-item {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.cf-range-item:hover {
+  border-color: var(--border-3);
+}
+.cf-range-item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 4px 8px 10px;
+  text-align: left;
+  color: var(--rand);
+}
+.cf-range-item-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.cf-range-item-name {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+}
+.cf-range-item-range {
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.cf-range-item-got {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.cf-range-item-rm {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  color: var(--text-3);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.cf-range-item-rm:hover {
+  color: var(--text);
+  background: var(--surface-4);
+}
+.cf-ranges-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 16px 14px;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-3);
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.cf-ranges-empty svg {
+  color: var(--rand);
+}
+.cf-ranges-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
 }
 
 /* ================================================================== Onglet Tas : état vide */

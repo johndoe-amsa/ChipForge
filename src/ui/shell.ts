@@ -8,6 +8,8 @@ import { buildLibraryPanel, swatch } from './panels/library';
 import type { PanelDef } from './panels/panel';
 import { buildParamPanels } from './panels/params';
 import { buildPilePanel } from './panels/pile';
+import { buildRandomPanel } from './panels/random';
+import type { ParamKey } from '../core/params';
 import { toast } from './toast';
 import { badge, button, dialog, kbd, menu, type Dialog } from './widgets';
 
@@ -54,7 +56,22 @@ export interface Shell {
 }
 
 export function buildShell(app: App, roots: { top: HTMLElement; rail: HTMLElement; sidebar: HTMLElement; viewport: HTMLElement; status: HTMLElement }): Shell {
-  const panels = [buildLibraryPanel(app), ...buildParamPanels(app), buildPilePanel(app)];
+  // Panneau Aléatoire : « afficher ce paramètre » ouvre son panneau et le met en évidence.
+  const locate = (key: ParamKey) => {
+    for (const p of panels) {
+      const row = p.body.querySelector<HTMLElement>(`[data-key="${key}"]`);
+      if (!row) continue;
+      showPanel(p.id);
+      const det = row.closest('details');
+      if (det) det.open = true;
+      row.scrollIntoView({ block: 'center' });
+      row.classList.remove('is-flash');
+      void row.offsetWidth;
+      row.classList.add('is-flash');
+      return;
+    }
+  };
+  const panels: PanelDef[] = [buildLibraryPanel(app), ...buildParamPanels(app), buildRandomPanel(app, locate), buildPilePanel(app)];
   const exportDialog = buildExportDialog(app);
   const helpDialog = buildHelpDialog(panels);
   const prefs = loadPrefs();
@@ -137,11 +154,12 @@ export function buildShell(app: App, roots: { top: HTMLElement; rail: HTMLElemen
       b.setAttribute('aria-selected', String(on));
       const n = p.modified?.() ?? 0;
       dot.hidden = n === 0;
-      b.dataset.tip = `${p.label}${n ? ` · ${n} modifié(s)` : ''}  ${panels.indexOf(p) + 1}`;
+      const what = p.id === 'aleatoire' ? 'plage(s)' : 'modifié(s)';
+      b.dataset.tip = `${p.label}${n ? ` · ${n} ${what}` : ''}  ${panels.indexOf(p) + 1}`;
     }
   };
   app.on((what) => {
-    if (what.has('params') || what.has('preset')) refreshRail();
+    if (what.has('params') || what.has('preset') || what.has('random')) refreshRail();
   });
   // Écran étroit : le volet recouvre la vue, fermé au départ.
   const startCollapsed = narrow.matches || prefs.collapsed;
@@ -190,7 +208,7 @@ function buildTopbar(app: App, root: HTMLElement, ctx: { showPanel: (id: string)
   const commitSeed = () => app.setSeed(Number(seedInput.value));
   seedInput.addEventListener('change', commitSeed);
   seedInput.addEventListener('keydown', (e) => e.key === 'Enter' && commitSeed());
-  const dice = h('button', { class: 'cf-seed-dice', title: 'Nouvelle variation aléatoire (R)', attrs: { type: 'button', 'aria-label': 'Nouvelle seed' } }, [icon('dice', 'w-4 h-4')]);
+  const dice = h('button', { class: 'cf-seed-dice', title: 'Nouveau tirage aléatoire (R) — réglages dans le panneau Aléatoire', attrs: { type: 'button', 'aria-label': 'Nouvelle seed' } }, [icon('dice', 'w-4 h-4')]);
   dice.addEventListener('click', () => app.rerollSeed());
   const seed = h('div', { class: 'cf-seed', title: 'Seed : toute la part aléatoire en dérive. Même seed + mêmes réglages = même géométrie.' }, [
     h('span', { class: 'cf-seed-label', text: 'Seed' }),
@@ -292,7 +310,7 @@ function buildHelpDialog(panels: PanelDef[]): Dialog {
     wide: true,
     body: [
       h('div', { class: 'cf-grid-2' }, [
-        group('Génération', [row(['R'], 'Nouvelle seed (et nouvelle chute en mode tas)'), row(['G'], 'Générer le tas'), row(['E'], 'Exporter…')]),
+        group('Génération', [row(['R'], 'Nouveau tirage (copeau unique) ou nouvelle chute (tas)'), row(['G'], 'Générer le tas'), row(['E'], 'Exporter…')]),
         group('Panneaux', [...panels.map((p, i) => row([String(i + 1)], p.label)), row(['P'], 'Afficher / masquer le volet')]),
         group('Vue 3D', [row(['F'], 'Recadrer'), row(['W'], 'Filaire'), row(['U'], 'Damier UV'), row(['Clic gauche'], 'Rotation'), row(['Clic droit'], 'Panoramique'), row(['Molette'], 'Zoom')]),
         group('Paramètres', [row(['Double-clic'], 'Sur un nom : valeur du preset'), row(['Entrée'], 'Valider une saisie'), row(['?'], 'Cette aide'), row(['Échap'], 'Fermer')]),

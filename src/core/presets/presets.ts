@@ -423,8 +423,6 @@ export const MAX_PILE_COUNT = 1000;
 
 export interface PileSettings {
   count: number;
-  /** 0 = copeaux identiques, 1 = forte dispersion autour du preset. */
-  variability: number;
   /** Rayon de la zone de chute (mm). 0 = automatique. */
   spread: number;
   physics: boolean;
@@ -444,7 +442,6 @@ export interface PileSettings {
 
 export const DEFAULT_PILE: PileSettings = {
   count: 40,
-  variability: 0.5,
   spread: 0,
   physics: true,
   precision: 'rapide',

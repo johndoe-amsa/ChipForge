@@ -35,12 +35,10 @@ export function buildPilePanel(app: App): PanelDef {
     integer: true,
     log: true,
   };
-  const defVar: NumberDef = { ...defCount, log: false, label: 'Variabilité', hint: 'Dispersion des paramètres autour du preset.', unit: '%', min: 0, max: 100, step: 1, hardMin: 0, hardMax: 100, integer: true };
   const defSpread: NumberDef = { ...defCount, log: false, label: 'Étalement', hint: 'Rayon de la zone de chute (0 = automatique).', unit: 'mm', min: 0, max: 200, step: 1, hardMin: 0, hardMax: 2000, integer: false };
   const pile = () => app.state.pile;
   const count = numberControl(defCount, () => pile().count, (v) => app.setPile({ count: Math.round(Math.min(MAX_PILE_COUNT, Math.max(1, v))) }), () => pile().count !== DEFAULT_PILE.count, () => app.setPile({ count: DEFAULT_PILE.count }), 'pile-count');
-  const variab = numberControl(defVar, () => Math.round(pile().variability * 100), (v) => app.setPile({ variability: Math.min(100, Math.max(0, v)) / 100 }), () => pile().variability !== DEFAULT_PILE.variability, () => app.setPile({ variability: DEFAULT_PILE.variability }), 'pile-variability');
-  const lot = section({ icon: 'layers', title: 'Lot', body: [count.el, variab.el] });
+  const lot = section({ icon: 'layers', title: 'Lot', body: [count.el, h('p', { class: 'cf-hint cf-hint-after', text: 'Les écarts entre copeaux (variation globale, plages) se règlent dans le panneau Aléatoire.' })] });
 
   // --- Réceptacle
   const container = segmented(
@@ -116,7 +114,7 @@ export function buildPilePanel(app: App): PanelDef {
     empty.hidden = tas;
     settings.hidden = !tas;
     footer.hidden = !tas;
-    for (const c of [count, variab, spread, physics, precision, container, slope, binL, binW, binH]) c.refresh();
+    for (const c of [count, spread, physics, precision, container, slope, binL, binW, binH]) c.refresh();
     precisionWrap.hidden = !pile().physics;
     const inBin = pile().container === 'bac';
     const inPyr = pile().container === 'pyramide';

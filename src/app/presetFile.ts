@@ -1,6 +1,7 @@
 import { sanitizeParams, type ChipParams } from '../core/params';
 import { DEFAULT_PILE, FORMS, MAX_PILE_COUNT, MATERIALS, PROCESSES, SHORTCUTS, type PileSettings, type PresetSelection } from '../core/presets/presets';
 import { PYRAMID_SLOPE_RANGE } from '../core/pyramid';
+import { DEFAULT_RANDOM, sanitizeRanges, type RandomSettings } from '../core/random';
 
 /**
  * Presets personnels au format JSON.
@@ -10,7 +11,8 @@ import { PYRAMID_SLOPE_RANGE } from '../core/pyramid';
  */
 
 export const PRESET_FORMAT = 'chipforge-preset';
-export const PRESET_VERSION = 1;
+/** v2 : réglages d'aléatoire (mode, variabilité, plages) ; les fichiers v1 restent lisibles. */
+export const PRESET_VERSION = 2;
 export const MAX_PRESET_BYTES = 256 * 1024;
 
 export interface PresetFile {
@@ -23,6 +25,9 @@ export interface PresetFile {
   seed: number;
   mode: 'unique' | 'tas';
   pile: PileSettings;
+  random: RandomSettings;
+  /** Copeau unique : valeurs tirées (vrai) ou valeurs du preset (faux). */
+  drawn: boolean;
 }
 
 export function serializePreset(data: Omit<PresetFile, 'format' | 'version' | 'createdAt'>): string {
@@ -74,7 +79,6 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
   const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
   const pile: PileSettings = {
     count: Math.round(num(own(pr, 'count'), 1, MAX_PILE_COUNT, DEFAULT_PILE.count)),
-    variability: num(own(pr, 'variability'), 0, 1, DEFAULT_PILE.variability),
     spread: num(own(pr, 'spread'), 0, 2000, DEFAULT_PILE.spread),
     physics: bool(own(pr, 'physics'), DEFAULT_PILE.physics),
     precision: own(pr, 'precision') === 'precise' ? 'precise' : 'rapide',
@@ -84,6 +88,15 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
     binWidth: num(own(pr, 'binWidth'), 0, 2000, DEFAULT_PILE.binWidth),
     binHeight: num(own(pr, 'binHeight'), 0, 2000, DEFAULT_PILE.binHeight),
     exportBin: bool(own(pr, 'exportBin'), DEFAULT_PILE.exportBin),
+  };
+
+  // v1 : la variabilité était un réglage du tas.
+  const rndRaw = own(raw, 'random');
+  const rr = isObj(rndRaw) ? rndRaw : {};
+  const random: RandomSettings = {
+    mode: own(rr, 'mode') === 'ciblee' ? 'ciblee' : 'globale',
+    variability: num(own(rr, 'variability') ?? own(pr, 'variability'), 0, 1, DEFAULT_RANDOM.variability),
+    ranges: sanitizeRanges(own(rr, 'ranges')),
   };
 
   return {
@@ -96,5 +109,7 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
     seed,
     mode: own(raw, 'mode') === 'tas' ? 'tas' : 'unique',
     pile,
+    random,
+    drawn: own(raw, 'drawn') === true,
   };
 }

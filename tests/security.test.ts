@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parsePreset, serializePreset, MAX_PRESET_BYTES } from '../src/app/presetFile';
+import { DEFAULT_RANDOM } from '../src/core/random';
 import { DEFAULT_PARAMS } from '../src/core/params';
 import { DEFAULT_PILE, DEFAULT_SELECTION, MAX_PILE_COUNT } from '../src/core/presets/presets';
 import { safeFileName } from '../src/core/export/transform';
@@ -89,7 +90,7 @@ describe('import de presets (données non fiables)', () => {
   const parse = (o: unknown) => parsePreset(typeof o === 'string' ? o : JSON.stringify(o), DEFAULT_PARAMS, DEFAULT_SELECTION);
 
   it('relit un preset exporté', () => {
-    const text = serializePreset({ name: 'Test', selection: DEFAULT_SELECTION, params: { ...DEFAULT_PARAMS, length: 42 }, seed: 7, mode: 'tas', pile: DEFAULT_PILE });
+    const text = serializePreset({ name: 'Test', selection: DEFAULT_SELECTION, params: { ...DEFAULT_PARAMS, length: 42 }, seed: 7, mode: 'tas', pile: DEFAULT_PILE, random: DEFAULT_RANDOM, drawn: false });
     const p = parse(text);
     expect(p.params.length).toBe(42);
     expect(p.seed).toBe(7);
@@ -122,7 +123,7 @@ describe('import de presets (données non fiables)', () => {
     expect((p.params as unknown as Record<string, unknown>).evil).toBeUndefined();
     expect(p.seed).toBe(12);
     expect(p.pile.count).toBe(MAX_PILE_COUNT);
-    expect(p.pile.variability).toBe(1);
+    expect(p.random.variability).toBe(1);
     expect(p.pile.physics).toBe(DEFAULT_PILE.physics);
   });
 
