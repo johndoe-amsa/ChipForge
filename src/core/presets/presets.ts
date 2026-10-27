@@ -418,6 +418,9 @@ export function composePreset(sel: PresetSelection): ChipParams {
 
 // ---------------------------------------------------------------- Variabilité (mode tas)
 
+/** Nombre maximal de copeaux d'un tas. */
+export const MAX_PILE_COUNT = 1000;
+
 export interface PileSettings {
   count: number;
   /** 0 = copeaux identiques, 1 = forte dispersion autour du preset. */
@@ -425,8 +428,12 @@ export interface PileSettings {
   /** Rayon de la zone de chute (mm). 0 = automatique. */
   spread: number;
   physics: boolean;
-  /** Réceptacle : chute sur la grille, ou dans un bac à copeaux. */
+  /** Simulation physique rapide (grands lots) ou précise. */
+  precision: 'rapide' | 'precise';
+  /** Réceptacle : chute sur la grille, dans un bac à copeaux, ou tas en pyramide. */
   container: Container;
+  /** Pente des faces du tas en pyramide (degrés). */
+  pyramidSlope: number;
   /** Dimensions intérieures du bac (mm), 0 = automatique. */
   binLength: number;
   binWidth: number;
@@ -440,7 +447,9 @@ export const DEFAULT_PILE: PileSettings = {
   variability: 0.5,
   spread: 0,
   physics: true,
+  precision: 'rapide',
   container: 'sol',
+  pyramidSlope: 40,
   binLength: 0,
   binWidth: 0,
   binHeight: 0,

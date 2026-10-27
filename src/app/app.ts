@@ -17,7 +17,8 @@ import {
 import { previewWorker, exportWorker } from '../worker/client';
 import type { ChipSpec } from '../worker/protocol';
 import { Viewer } from '../viewer/viewer';
-import { chipRadius, scatterPile, simulatePile } from '../physics/pile';
+import { chipRadius, pilePyramid, scatterPile, simulatePile } from '../physics/pile';
+import type { PyramidGeometry } from '../core/pyramid';
 import { binGeometry, type BinGeometry } from '../core/bin';
 import { meshExportQuality, previewQuality, stepExportQuality, type MeshDetail, type PreviewTier, type StepDetail } from './quality';
 import { parsePreset, serializePreset } from './presetFile';
@@ -78,6 +79,13 @@ export class App {
   transforms: RigidTransform[] = [];
   /** Bac à copeaux du tas affiché (dimensions effectives), ou null. */
   bin: BinGeometry | null = null;
+  /** Pyramide du tas affiché (dimensions estimées avant tassement), ou null. */
+  pyramid: PyramidGeometry | null = null;
+  /**
+   * Mode tas : les réglages ont changé depuis la dernière génération. Le tas n'est recalculé qu'à
+   * la demande (generatePile), car un grand lot prend du temps.
+   */
+  stale = false;
   status: Status = { phase: 'pret', progress: 0, message: '', lastMs: 0 };
   exporting = false;
 
@@ -139,20 +147,20 @@ export class App {
     s.params = { ...s.base };
     this.refit = true;
     this.emit('preset', 'params');
-    this.scheduleRegen(0);
+    this.requestRegen(0);
   }
 
   resetParams(): void {
     this.state.params = { ...this.state.base };
     this.emit('params');
-    this.scheduleRegen(0);
+    this.requestRegen(0);
   }
 
   setParam<K extends keyof ChipParams>(key: K, value: ChipParams[K]): void {
     if (this.state.params[key] === value) return;
     this.state.params = { ...this.state.params, [key]: value };
     this.emit('params');
-    this.scheduleRegen();
+    this.requestRegen();
   }
 
   isModified(key: keyof ChipParams): boolean {
@@ -180,18 +188,21 @@ export class App {
     if (v === this.state.seed) return;
     this.state.seed = v;
     this.emit('seed');
-    this.scheduleRegen(0);
+    this.requestRegen(0);
   }
 
+  /** Nouvelle seed ; en mode tas, relance aussitôt la génération (action explicite). */
   rerollSeed(): void {
     this.setSeed(randomSeed());
+    if (this.state.mode === 'tas') this.generatePile();
   }
 
   setMode(mode: Mode): void {
     if (mode === this.state.mode) return;
     this.state.mode = mode;
     this.refit = true;
-    this.emit('mode');
+    this.stale = false;
+    this.emit('mode', 'stale');
     this.scheduleRegen(0);
   }
 
@@ -201,8 +212,8 @@ export class App {
     // Exporter ou non le bac ne change pas la scène.
     const keys = Object.keys(p).filter((k) => k !== 'exportBin');
     if (this.state.mode === 'tas' && keys.length) {
-      if (keys.some((k) => k !== 'variability' && k !== 'physics')) this.refit = true;
-      this.scheduleRegen(250);
+      if (keys.some((k) => k !== 'variability' && k !== 'physics' && k !== 'precision')) this.refit = true;
+      this.requestRegen();
     }
   }
 
@@ -215,7 +226,7 @@ export class App {
     if (v.uvChecker !== undefined) this.viewer.setUvChecker(view.uvChecker);
     if (v.grid !== undefined) this.viewer.setGridVisible(view.grid);
     if (v.axes !== undefined) this.viewer.setAxesVisible(view.axes);
-    if (v.tier && v.tier !== prev.tier) this.scheduleRegen(0);
+    if (v.tier && v.tier !== prev.tier) this.requestRegen(0);
     this.emit('view');
   }
 
@@ -243,6 +254,26 @@ export class App {
     return out;
   }
 
+  /**
+   * Réglage modifié : copeau unique recalculé aussitôt ; en mode tas, le tas affiché est seulement
+   * marqué périmé, jusqu'au prochain generatePile().
+   */
+  private requestRegen(delay = 45): void {
+    if (this.state.mode !== 'tas') {
+      this.scheduleRegen(delay);
+      return;
+    }
+    if (!this.stale) {
+      this.stale = true;
+      this.emit('stale');
+    }
+  }
+
+  /** Mode tas : génère le tas avec les réglages courants. */
+  generatePile(): void {
+    this.scheduleRegen(0);
+  }
+
   scheduleRegen(delay = 45): void {
     clearTimeout(this.regenTimer);
     clearTimeout(this.refineTimer);
@@ -259,6 +290,10 @@ export class App {
     if (this.sim) this.sim.cancelled = true;
     this.sim = null;
     this.refining = refine;
+    if (this.stale) {
+      this.stale = false;
+      this.emit('stale');
+    }
     const specs = this.chipSpecs();
     const quality = previewQuality(refine ? 'detaille' : this.state.view.tier, specs.length);
     this.setStatus({
@@ -284,20 +319,24 @@ export class App {
       const m = this.meshes[0];
       this.transforms = [{ q: [...IDENTITY.q], t: [0, -m.bounds[1], 0] }];
       this.bin = null;
+      this.pyramid = null;
       this.viewer.setBin(null);
       this.viewer.setChips(this.meshes, this.transforms);
       this.finishRegen(genMs, refine);
       return;
     }
 
-    // Tas : dispersion immédiate, puis chute physique éventuelle (sur la grille ou dans le bac).
+    // Tas : dispersion immédiate, puis chute physique éventuelle (sur la grille, dans le bac ou
+    // moulée en pyramide).
     const pile = this.state.pile;
     this.bin =
       pile.container === 'bac'
         ? binGeometry({ length: pile.binLength, width: pile.binWidth, height: pile.binHeight }, this.meshes.map(chipRadius))
         : null;
+    const slope = pile.container === 'pyramide' ? pile.pyramidSlope : null;
+    this.pyramid = slope ? pilePyramid(this.meshes, slope) : null;
     this.viewer.setBin(this.bin);
-    this.transforms = scatterPile(this.meshes, this.state.seed, pile.spread, this.bin);
+    this.transforms = scatterPile(this.meshes, this.state.seed, pile.spread, this.bin, slope);
     this.viewer.setChips(this.meshes, this.transforms);
     if (!pile.physics) {
       this.finishRegen(genMs);
@@ -312,6 +351,8 @@ export class App {
         seed: this.state.seed,
         spread: pile.spread,
         bin: this.bin,
+        pyramid: slope,
+        precision: pile.precision,
         signal,
         onFrame: (tr, progress) => {
           if (signal.cancelled) return;
@@ -367,6 +408,10 @@ export class App {
     if (this.exporting) return;
     if (this.busy) {
       toast('Patientez : la génération ou la simulation est en cours.', 'warn');
+      return;
+    }
+    if (this.state.mode === 'tas' && this.stale) {
+      toast('Les réglages ont changé depuis la génération du tas : cliquez sur « Générer le tas » avant d’exporter.', 'warn');
       return;
     }
     const specs = this.chipSpecs();
@@ -432,7 +477,11 @@ export class App {
     s.pile = p.pile;
     this.refit = true;
     this.emit('preset', 'params', 'seed', 'mode', 'pile');
-    this.scheduleRegen(0);
+    if (p.mode === 'tas') {
+      // Tas : génération à la demande, comme pour tout changement de réglage.
+      this.stale = true;
+      this.emit('stale');
+    } else this.scheduleRegen(0);
     toast(`Preset « ${p.name} » chargé.`, 'ok');
   }
 }

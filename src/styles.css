@@ -742,6 +742,20 @@ select {
   text-overflow: ellipsis;
   color: #c3c9d3;
 }
+.cf-vp-stale {
+  position: absolute;
+  left: 50%;
+  bottom: 38px;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+.cf-vp-stale[hidden] {
+  display: none;
+}
+.cf-stale-note {
+  color: #f2c46d;
+}
 .cf-statusbar {
   position: absolute;
   left: 12px;

@@ -1,6 +1,7 @@
 import type { App } from '../app/app';
 import { PARAM_DEFS, PARAM_DEF_MAP, SECTIONS, clampParam, type ChipParams, type NumberDef } from '../core/params';
-import { FORMS, MATERIALS, PROCESSES, SHORTCUTS, type ChipQuality } from '../core/presets/presets';
+import { DEFAULT_PILE, FORMS, MATERIALS, MAX_PILE_COUNT, PROCESSES, SHORTCUTS, type ChipQuality } from '../core/presets/presets';
+import { PYRAMID_SLOPE_RANGE } from '../core/pyramid';
 import { MATCAPS } from '../viewer/textures';
 import { numberControl, segmented, selectControl, toggleControl, type Control } from './controls';
 import { formatCount, h, icon } from './dom';
@@ -234,14 +235,27 @@ export function buildLeftPanel(app: App, root: HTMLElement): void {
 export function buildRightPanel(app: App, root: HTMLElement): void {
   // --- Tas
   const pileIntro = h('div', { class: 'cf-hint' }, [
-    h('p', { text: 'Génère un lot de copeaux dispersés autour du preset courant, puis les fait tomber sur la grille ou dans un bac à copeaux (simulation physique).' }),
+    h('p', { text: 'Génère un lot de copeaux dispersés autour du preset courant, puis les fait tomber sur la grille, dans un bac à copeaux ou en tas pyramidal (simulation physique).' }),
   ]);
   const toPile = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-2', attrs: { type: 'button' } }, [icon('layers'), h('span', { text: 'Passer en mode tas' })]);
   toPile.addEventListener('click', () => app.setMode('tas'));
-  const defCount: NumberDef = { kind: 'number', key: 'length', label: 'Nombre de copeaux', section: 'macro', hint: 'Taille du lot (200 max).', min: 1, max: 200, step: 1, hardMin: 1, hardMax: 200, integer: true };
-  const defVar: NumberDef = { ...defCount, label: 'Variabilité', hint: 'Dispersion des paramètres autour du preset.', unit: '%', min: 0, max: 100, step: 1, hardMin: 0, hardMax: 100, integer: true };
-  const defSpread: NumberDef = { ...defCount, label: 'Étalement', hint: 'Rayon de la zone de chute (0 = automatique).', unit: 'mm', min: 0, max: 200, step: 1, hardMin: 0, hardMax: 2000, integer: false };
-  const count = numberControl(defCount, () => app.state.pile.count, (v) => app.setPile({ count: Math.round(Math.min(200, Math.max(1, v))) }), () => false, () => app.setPile({ count: 40 }), 'pile-count');
+  const defCount: NumberDef = {
+    kind: 'number',
+    key: 'length',
+    label: 'Nombre de copeaux',
+    section: 'macro',
+    hint: `Taille du lot (${MAX_PILE_COUNT} max). Au-delà de quelques centaines, la génération et la chute prennent du temps.`,
+    min: 1,
+    max: MAX_PILE_COUNT,
+    step: 1,
+    hardMin: 1,
+    hardMax: MAX_PILE_COUNT,
+    integer: true,
+    log: true,
+  };
+  const defVar: NumberDef = { ...defCount, log: false, label: 'Variabilité', hint: 'Dispersion des paramètres autour du preset.', unit: '%', min: 0, max: 100, step: 1, hardMin: 0, hardMax: 100, integer: true };
+  const defSpread: NumberDef = { ...defCount, log: false, label: 'Étalement', hint: 'Rayon de la zone de chute (0 = automatique).', unit: 'mm', min: 0, max: 200, step: 1, hardMin: 0, hardMax: 2000, integer: false };
+  const count = numberControl(defCount, () => app.state.pile.count, (v) => app.setPile({ count: Math.round(Math.min(MAX_PILE_COUNT, Math.max(1, v))) }), () => false, () => app.setPile({ count: 40 }), 'pile-count');
   const variab = numberControl(defVar, () => Math.round(app.state.pile.variability * 100), (v) => app.setPile({ variability: Math.min(100, Math.max(0, v)) / 100 }), () => false, () => app.setPile({ variability: 0.5 }), 'pile-variability');
   const spread = numberControl(defSpread, () => app.state.pile.spread, (v) => app.setPile({ spread: Math.min(2000, Math.max(0, v)) }), () => false, () => app.setPile({ spread: 0 }), 'pile-spread');
   const physics = toggleControl('Simulation physique', 'Chute réaliste sans interpénétration (sinon dispersion simple sur la grille).', () => app.state.pile.physics, (v) => app.setPile({ physics: v }));
@@ -250,11 +264,12 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     [
       { value: 'sol', label: 'Sur la grille', title: 'Les copeaux tombent en monticule sur la grille' },
       { value: 'bac', label: 'Dans un bac', title: 'Les copeaux tombent dans un bac à copeaux ouvert (parois et fond)' },
+      { value: 'pyramide', label: 'En pyramide', title: 'Tas moulé en pyramide à base carrée, puis démoulé' },
     ],
     () => app.state.pile.container,
     (v) => app.setPile({ container: v }),
   );
-  const binDef = (label: string, hint: string): NumberDef => ({ ...defCount, label, hint, unit: 'mm', min: 0, max: 300, step: 1, hardMin: 0, hardMax: 2000, integer: false });
+  const binDef = (label: string, hint: string): NumberDef => ({ ...defCount, log: false, label, hint, unit: 'mm', min: 0, max: 300, step: 1, hardMin: 0, hardMax: 2000, integer: false });
   const binNum = (key: 'binLength' | 'binWidth' | 'binHeight', label: string, hint: string) =>
     numberControl(binDef(label, hint), () => app.state.pile[key], (v) => app.setPile({ [key]: Math.min(2000, Math.max(0, v)) }), () => app.state.pile[key] > 0, () => app.setPile({ [key]: 0 }), `pile-${key}`);
   const binL = binNum('binLength', 'Longueur intérieure', 'Longueur du bac (0 = automatique, selon la taille et le nombre de copeaux).');
@@ -263,11 +278,47 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
   const binInfo = h('p', { class: 'cf-hint' });
   const exportBin = toggleControl('Exporter le bac', 'Ajoute le bac (objet « bac ») aux exports OBJ et STEP, à sa place sous le tas.', () => app.state.pile.exportBin, (v) => app.setPile({ exportBin: v }));
   const binBody = h('div', {}, [binL.el, binW.el, binH.el, binInfo, exportBin.el]);
+  const precision = segmented(
+    [
+      { value: 'rapide', label: 'Rapide', title: 'Grands lots : collisions simplifiées, arrêt dès que le tas est presque immobile' },
+      { value: 'precise', label: 'Précise', title: 'Collisions complètes, arrêt quand tous les copeaux sont immobiles (plus lent)' },
+    ],
+    () => app.state.pile.precision,
+    (v) => app.setPile({ precision: v }),
+  );
+  const precisionWrap = h('div', { class: 'cf-field' }, [h('div', { class: 'cf-label', text: 'Simulation' }), precision.el]);
+  // --- Pyramide
+  const defSlope: NumberDef = {
+    ...defCount,
+    label: 'Pente des faces',
+    hint: 'Inclinaison des faces de la pyramide. Après démoulage, les bords se tassent un peu.',
+    unit: '°',
+    min: PYRAMID_SLOPE_RANGE[0],
+    max: PYRAMID_SLOPE_RANGE[1],
+    step: 1,
+    hardMin: PYRAMID_SLOPE_RANGE[0],
+    hardMax: PYRAMID_SLOPE_RANGE[1],
+    log: false,
+  };
+  const slope = numberControl(
+    defSlope,
+    () => app.state.pile.pyramidSlope,
+    (v) => app.setPile({ pyramidSlope: Math.min(PYRAMID_SLOPE_RANGE[1], Math.max(PYRAMID_SLOPE_RANGE[0], v)) }),
+    () => app.state.pile.pyramidSlope !== DEFAULT_PILE.pyramidSlope,
+    () => app.setPile({ pyramidSlope: DEFAULT_PILE.pyramidSlope }),
+    'pile-pyramid-slope',
+  );
+  const pyrInfo = h('p', { class: 'cf-hint' });
+  const pyrBody = h('div', {}, [slope.el, pyrInfo]);
   const spreadWrap = h('div', {}, [spread.el]);
-  const rerun = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-1', title: 'Nouvelle seed et nouvelle chute', attrs: { type: 'button' } }, [icon('play'), h('span', { text: 'Nouvelle chute' })]);
+  // --- Génération à la demande
+  const generate = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-1', title: 'Génère le tas avec les réglages courants', attrs: { type: 'button' } }, [icon('play'), h('span', { text: 'Générer le tas' })]);
+  generate.addEventListener('click', () => app.generatePile());
+  const rerun = h('button', { class: 'cf-btn cf-btn-sm w-full justify-center mt-1', title: 'Nouvelle seed et nouvelle chute (touche R)', attrs: { type: 'button' } }, [icon('dice'), h('span', { text: 'Nouvelle chute' })]);
   rerun.addEventListener('click', () => app.rerollSeed());
+  const staleNote = h('p', { class: 'cf-hint cf-stale-note', text: 'Réglages modifiés : le tas affiché ne les reflète pas encore.' });
   const pileField = (label: string, el: HTMLElement) => h('div', { class: 'cf-field' }, [h('div', { class: 'cf-label', text: label }), el]);
-  const pileBody = h('div', {}, [count.el, variab.el, pileField('Réceptacle', container.el), spreadWrap, binBody, physics.el, rerun]);
+  const pileBody = h('div', {}, [count.el, variab.el, pileField('Réceptacle', container.el), spreadWrap, binBody, pyrBody, physics.el, precisionWrap, staleNote, generate, rerun]);
   const pileOff = h('div', {}, [pileIntro, toPile]);
   const pileSec = section('Mode tas', true, [pileOff, pileBody], 'Lot de copeaux et dispersion contrôlée');
 
@@ -366,10 +417,19 @@ export function buildRightPanel(app: App, root: HTMLElement): void {
     variab.refresh();
     spread.refresh();
     physics.refresh();
+    precision.refresh();
+    precisionWrap.hidden = !app.state.pile.physics;
     container.refresh();
     const inBin = app.state.pile.container === 'bac';
-    spreadWrap.hidden = inBin;
+    const inPyr = app.state.pile.container === 'pyramide';
+    spreadWrap.hidden = inBin || inPyr;
     binBody.hidden = !inBin;
+    pyrBody.hidden = !inPyr;
+    slope.refresh();
+    const p = app.pyramid;
+    pyrInfo.textContent = p ? `Pyramide : base de ${(2 * p.half).toFixed(0)} mm, hauteur ${p.height.toFixed(0)} mm (estimées avant tassement).` : '';
+    staleNote.hidden = !app.stale;
+    generate.classList.toggle('cf-btn-primary', app.stale);
     binL.refresh();
     binW.refresh();
     binH.refresh();
@@ -450,7 +510,12 @@ export function buildViewportOverlay(app: App, root: HTMLElement): void {
   const spinner = h('span', { class: 'cf-spinner' });
   const gridText = h('span', { class: 'cf-grid-text' });
   const statusBar = h('div', { class: 'cf-statusbar' }, [gridText, h('span', { class: 'cf-status' }, [spinner, statusText])]);
-  root.append(progress, toolbar, qBadge, statusBar);
+  const staleBtn = h('button', { class: 'cf-btn cf-btn-primary cf-vp-stale', title: 'Les réglages ont changé : générer le tas', attrs: { type: 'button' } }, [
+    icon('play'),
+    h('span', { text: 'Générer le tas' }),
+  ]);
+  staleBtn.addEventListener('click', () => app.generatePile());
+  root.append(progress, toolbar, qBadge, staleBtn, statusBar);
 
   app.viewer.onGridStep = (minor, major) => {
     const f = (x: number) => (x >= 1 ? `${+x.toFixed(2)} mm` : `${+(x * 1000).toFixed(1)} µm`);
@@ -475,6 +540,7 @@ export function buildViewportOverlay(app: App, root: HTMLElement): void {
     spinner.hidden = !busy;
     statusText.textContent = st.phase === 'erreur' ? st.message : busy ? st.message : 'Prêt';
     statusText.classList.toggle('text-rose-300', st.phase === 'erreur');
+    staleBtn.hidden = !(app.state.mode === 'tas' && app.stale);
   };
   app.on(refresh);
   refresh();
@@ -488,6 +554,7 @@ export function bindShortcuts(app: App): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === 'r') app.rerollSeed();
+    else if (k === 'g' && app.state.mode === 'tas') app.generatePile();
     else if (k === 'f') app.frame();
     else if (k === 'w') app.setView({ wireframe: !app.state.view.wireframe });
     else if (k === 'u') app.setView({ uvChecker: !app.state.view.uvChecker });

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parsePreset, serializePreset, MAX_PRESET_BYTES } from '../src/app/presetFile';
 import { DEFAULT_PARAMS } from '../src/core/params';
-import { DEFAULT_PILE, DEFAULT_SELECTION } from '../src/core/presets/presets';
+import { DEFAULT_PILE, DEFAULT_SELECTION, MAX_PILE_COUNT } from '../src/core/presets/presets';
 import { safeFileName } from '../src/core/export/transform';
 import { inlineScriptProblems } from '../scripts/html-guard.mjs';
 
@@ -121,7 +121,7 @@ describe('import de presets (données non fiables)', () => {
     expect(p.params.burrSide).toBe(DEFAULT_PARAMS.burrSide);
     expect((p.params as unknown as Record<string, unknown>).evil).toBeUndefined();
     expect(p.seed).toBe(12);
-    expect(p.pile.count).toBe(200);
+    expect(p.pile.count).toBe(MAX_PILE_COUNT);
     expect(p.pile.variability).toBe(1);
     expect(p.pile.physics).toBe(DEFAULT_PILE.physics);
   });
