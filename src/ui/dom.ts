@@ -53,6 +53,34 @@ const ICONS: Record<string, string[]> = {
   check: ['M5 12l5 5L20 7'],
   chevron: ['M9 6l6 6-6 6'],
   alert: ['M12 3l10 18H2z', 'M12 10v4', 'M12 17h.01'],
+  // Navigation
+  preset: ['M12 2l9 5v10l-9 5-9-5V7z', 'M3 7l9 5 9-5', 'M12 12v10'],
+  coil: ['M6 4h12', 'M6 4c-3 1.5-1 4 6 4s9 2.5 6 4-3 4 0 4', 'M18 12c3 1.5 1 4-6 4s-9 2.5-6 4', 'M6 20h12'],
+  waves: ['M3 7c3-3 6 3 9 0s6 3 9 0', 'M3 12c3-3 6 3 9 0s6 3 9 0', 'M3 17c3-3 6 3 9 0s6 3 9 0'],
+  flame: ['M12 22c4 0 7-3 7-7 0-5-5-7-5-12-3 2-5 5-5 8-1-1-2-2-2-4-2 2-2 5-2 8 0 4 3 7 7 7z', 'M12 22c-1.7 0-3-1.3-3-3 0-2 3-4 3-6 1 2 3 4 3 6 0 1.7-1.3 3-3 3z'],
+  keyboard: ['M3 6h18v12H3z', 'M7 10h.01', 'M11 10h.01', 'M15 10h.01', 'M7 14h10'],
+  folder: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+  help: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6', 'M12 17h.01'],
+  file: ['M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z', 'M14 3v6h6'],
+  panel: ['M3 4h18v16H3z', 'M9 4v16'],
+  // Sections de paramètres
+  section: ['M4 17l3-10h10l3 10z', 'M9 12h6'],
+  edge: ['M4 20V11a7 7 0 0 1 7-7h9', 'M8 20v-4', 'M12 20v-2'],
+  taper: ['M3 9l18-4v14L3 15z'],
+  wave: ['M2 12c2.5-5 5-5 7.5 0s5 5 7.5 0 3.5-3 5-2'],
+  noise: ['M3 12h3l2-6 3 12 3-9 2 5 1.5-2H21'],
+  // Procédés
+  turning: ['M2 8h11v8H2z', 'M13 10h4v4h-4', 'M16 20l2-6h3l-2 6z'],
+  groove: ['M3 8h18v8H3z', 'M10 8v4h4V8', 'M12 2v3'],
+  milling: ['M9 2h6v3H9z', 'M10 5v11h4V5', 'M10 8l4 2', 'M10 12l4 2', 'M3 20h18', 'M8 20v-2h8v2'],
+  drilling: ['M12 2v3', 'M9 5h6v10l-3 5-3-5z', 'M9 8l6 2', 'M9 12l6 2'],
+  // Réceptacles du tas
+  ground: ['M3 19h18', 'M5 19c1-5 3.5-8 7-8s6 3 7 8'],
+  bin: ['M3 7l2 13h14l2-13', 'M2 7h20', 'M8 12c1-2 3-2 4 0s3 2 4 0'],
+  pyramid: ['M12 3l9 17H3z', 'M12 3l-2 17'],
+  gauge: ['M12 21a9 9 0 1 1 9-9', 'M12 12l4-4', 'M12 12h.01'],
+  ingot: ['M3 16l3.5-8h11L21 16z', 'M3 16h18v3H3z'],
+  bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
 };
 
 export function icon(name: keyof typeof ICONS | string, cls = 'w-4 h-4'): SVGSVGElement {

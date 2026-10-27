@@ -6,6 +6,7 @@ import { PILE_BULK_FACTOR, PYRAMID_SLOPE_RANGE, pyramidGeometry, pyramidPoint } 
 import { Rng, hashSeed } from '../src/core/rng';
 import { DEFAULT_PILE, DEFAULT_SELECTION, MAX_PILE_COUNT, composePreset, varyParams } from '../src/core/presets/presets';
 import { parsePreset, serializePreset } from '../src/app/presetFile';
+import { DEFAULT_RANDOM } from '../src/core/random';
 import { scatterPile, simulatePile } from '../src/physics/pile';
 import type { RigidTransform } from '../src/core/export/transform';
 
@@ -76,7 +77,7 @@ describe('tas en pyramide : chute physique', () => {
 describe('tas en pyramide : presets', () => {
   it('relit le réceptacle pyramide, sa pente et un grand lot', () => {
     const pile = { ...DEFAULT_PILE, container: 'pyramide' as const, pyramidSlope: 55, count: MAX_PILE_COUNT, precision: 'precise' as const };
-    const txt = serializePreset({ name: 'p', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile });
+    const txt = serializePreset({ name: 'p', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile, random: DEFAULT_RANDOM, drawn: false });
     expect(parsePreset(txt, DEFAULT_PARAMS, DEFAULT_SELECTION).pile).toEqual(pile);
     const bad = JSON.parse(txt);
     bad.pile = { ...bad.pile, pyramidSlope: 500, count: 1e6 };

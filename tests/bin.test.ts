@@ -7,6 +7,7 @@ import { ObjWriter, writeMTL, concatChunks } from '../src/core/export/obj';
 import { writeSTEP } from '../src/core/export/step';
 import { IDENTITY } from '../src/core/export/transform';
 import { parsePreset, serializePreset } from '../src/app/presetFile';
+import { DEFAULT_RANDOM } from '../src/core/random';
 import { DEFAULT_PILE, DEFAULT_SELECTION } from '../src/core/presets/presets';
 
 interface OcctMesh {
@@ -112,7 +113,7 @@ describe('bac à copeaux : exports', () => {
 describe('bac à copeaux : presets', () => {
   it('relit les réglages du bac et rejette les valeurs invalides', () => {
     const pile = { ...DEFAULT_PILE, container: 'bac' as const, binLength: 120, binWidth: 70, binHeight: 30, exportBin: true };
-    const txt = serializePreset({ name: 'b', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile });
+    const txt = serializePreset({ name: 'b', selection: DEFAULT_SELECTION, params: DEFAULT_PARAMS, seed: 3, mode: 'tas', pile, random: DEFAULT_RANDOM, drawn: false });
     expect(parsePreset(txt, DEFAULT_PARAMS, DEFAULT_SELECTION).pile).toEqual(pile);
     const bad = JSON.parse(txt);
     bad.pile = { container: 'piscine', binLength: -5, binWidth: 1e9, binHeight: 'x', exportBin: 'oui' };

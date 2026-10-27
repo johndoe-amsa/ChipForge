@@ -1,14 +1,15 @@
 import './styles.css';
 import { App } from './app/app';
-import { bindShortcuts, buildHeader, buildLeftPanel, buildRightPanel, buildViewportOverlay } from './ui/panels';
+import { bindShortcuts, buildShell } from './ui/shell';
 import { toast } from './ui/toast';
 
 function boot(): void {
   const viewport = document.getElementById('viewport');
-  const left = document.getElementById('panel-left');
-  const right = document.getElementById('panel-right');
+  const sidebar = document.getElementById('sidebar');
+  const rail = document.getElementById('rail');
   const top = document.getElementById('topbar');
-  if (!viewport || !left || !right || !top) return;
+  const status = document.getElementById('statusbar');
+  if (!viewport || !sidebar || !rail || !top || !status) return;
 
   let app: App;
   try {
@@ -18,13 +19,9 @@ function boot(): void {
     viewport.appendChild(msg);
     return;
   }
-  buildHeader(app, top);
-  buildLeftPanel(app, left);
-  buildRightPanel(app, right);
-  buildViewportOverlay(app, viewport);
-  bindShortcuts(app);
+  const shell = buildShell(app, { top, rail, sidebar, viewport, status });
+  bindShortcuts(app, shell);
 
-  document.getElementById('scrim')?.addEventListener('click', () => document.body.classList.remove('show-left', 'show-right'));
   window.addEventListener('unhandledrejection', (e) => toast(`Erreur inattendue : ${String(e.reason?.message ?? e.reason)}`, 'error'));
 }
 

@@ -8,6 +8,7 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 - **49 paramètres** (curseurs + saisie numérique) : macro-géométrie, section, bords, profil longitudinal, micro-reliefs, bruit, couleurs de revenu.
 - **Couleurs de revenu** : teintes d'oxydation (paille, or, bronze, pourpre, bleu…) variant le long du copeau, d'une face à l'autre et d'un copeau à l'autre.
 - **Mode tas** : jusqu'à 1000 copeaux variés autour du preset, chute physique réaliste et déterministe, sur la grille, dans un **bac à copeaux** ou moulés en **tas pyramidal**. Le tas est calculé à la demande (bouton *Générer le tas*).
+- **Aléatoire** : variation globale de tous les paramètres autour du preset, ou **plages ciblées** (ex. longueur entre 15 et 40 mm, épaisseur entre 0,08 et 0,2 mm), en copeau unique comme en tas.
 - **Exports** : OBJ (+ MTL, archive .zip) et **STEP AP214 en B-Rep NURBS**, couleurs de revenu et bac compris.
 
 ---
@@ -16,12 +17,14 @@ L'application tourne entièrement dans le navigateur : aucune donnée ne quitte 
 
 | Zone | Rôle |
 |---|---|
-| Panneau gauche | Presets (matière, procédé, forme ISO, raccourcis, presets personnels JSON) puis paramètres en accordéons. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset. |
+| Barre supérieure | Preset courant (matière › procédé › forme ISO, cliquable), mode *Copeau / Tas*, **seed** (🎲 = nouveau tirage), menu *Presets* (enregistrer / ouvrir un preset personnel JSON, revenir au preset) et bouton **Exporter**. |
+| Barre d'activité (à gauche) | Icônes des panneaux : **Preset** (matière, procédé, forme ISO, raccourcis atelier), **Géométrie** (macro-géométrie, section, profil), **Surface** (bords, micro-reliefs, bruit), **Couleurs** (revenu), **Aléatoire** (variation globale / ciblée, tirage, plages), **Tas**. Une pastille signale un panneau dont des paramètres diffèrent du preset (ou, pour Aléatoire, des plages actives). Cliquer l'icône active replie le volet. |
+| Volet latéral | Paramètres en sections repliables, chacune avec son icône et le nombre de paramètres modifiés. Un paramètre modifié s'affiche en bleu ; ↺ (ou double-clic sur son nom) le remet à la valeur du preset ; *Réinitialiser* remet tout le panneau. |
 | Centre | Vue 3D : rotation (clic gauche), panoramique (clic droit), zoom (molette). Barre d'outils : recadrer, grille, axes, filaire, damier UV, MatCap, qualité d'aperçu *Rapide / Détaillé*. |
-| Haut | Mode *Copeau unique / Tas*, **seed** (🎲 = nouvelle variation), export rapide OBJ / STEP. |
-| Panneau droit | Réglages du tas (dont réceptacle : grille, bac ou pyramide) et bouton *Générer le tas*, statistiques (quads, triangles, sommets), options d'export. |
+| Exporter | Boîte de dialogue unique : format (STEP ou OBJ), options du format, nom du fichier, bac éventuel. |
+| Barre d'état | Progression, puis statistiques de l'aperçu (copeaux, quads, sommets, temps de calcul, micro-reliefs, auto-intersections, pas de la grille). |
 
-Raccourcis clavier : `R` nouvelle seed (et nouvelle chute en mode tas) · `G` générer le tas · `F` recadrer · `W` filaire · `U` damier UV · `Échap` ferme les tiroirs (tablette).
+Raccourcis clavier (`?` les affiche) : `R` nouveau tirage (nouvelle chute en mode tas) · `G` générer le tas · `E` exporter · `F` recadrer · `W` filaire · `U` damier UV · `1`–`6` panneaux · `P` afficher / masquer le volet · `Échap` ferme le volet (écrans étroits).
 
 **Seed** : toute la part aléatoire (bruit, crans, cassures, dispersion du tas, chute physique) dérive de la seed.
 Mêmes réglages + même seed = exactement la même géométrie, à l'aperçu comme à l'export.
@@ -29,6 +32,28 @@ Mêmes réglages + même seed = exactement la même géométrie, à l'aperçu co
 **Aperçu et export** : l'aperçu *Rapide* lisse les micro-reliefs trop fins pour sa résolution (indiqué dans les statistiques),
 puis s'affine automatiquement en qualité détaillée dès que les réglages ne bougent plus.
 L'export recalcule la géométrie à sa propre résolution, plus fine (*Standard / Fin / Ultra* pour l'OBJ, *Léger / Standard / Fin* pour le STEP).
+
+## Aléatoire : variation globale et plages ciblées
+
+Panneau **Aléatoire** (icône 🎲) :
+
+- **Variation globale** : tous les paramètres varient autour des valeurs réglées, selon la *variabilité* (0 % = aucune).
+- **Variation ciblée** : seuls les paramètres dotés d'une plage varient ; tous les autres restent exactement aux valeurs réglées.
+- **Plages** : l'icône 🎲 qui apparaît sur chaque ligne de paramètre (Géométrie, Surface, Couleurs) le fait varier
+  entre un minimum et un maximum en unités réelles (curseur à deux poignées ou saisie). Tirage **uniforme** dans la plage,
+  entier pour les paramètres entiers. Pour une liste (côté de la bavure, bord fissuré, famille d'oxydes), on retient les
+  options possibles. Dans les deux modes, un paramètre en plage suit toujours sa plage. Bornes inversées : remises dans
+  l'ordre ; min = max : valeur fixe.
+
+**Copeau unique** : un preset s'affiche d'abord tel quel ; `R` / 🎲 tire un copeau selon ces réglages. La valeur tirée
+s'affiche sous chaque paramètre en plage (« tiré : 34,1 mm ») avec un bouton **Figer** (elle devient la valeur fixe, la
+plage est retirée). *Adopter* fait de tout le tirage les valeurs réglées ; *Valeurs réglées* revient au copeau non tiré.
+**Tas** : chaque copeau est tiré ; le panneau indique, pour chaque plage, les valeurs extrêmes obtenues dans le lot.
+
+Les plages sont conservées quand on change de preset ; *Réinitialiser* et *Revenir au preset* ne remettent que les
+valeurs. Elles sont enregistrées dans les presets personnels (format v2 ; les fichiers v1 restent lisibles, leur
+variabilité du tas devient la variabilité globale). Chaque paramètre en plage a son propre flux aléatoire, dérivé de la
+seed : ajouter ou retirer une plage ne change pas le tirage des autres, et mêmes réglages + même seed = même géométrie.
 
 ## Géométrie
 
@@ -61,7 +86,7 @@ Chaque copeau est un **solide fermé et étanche** obtenu par balayage d'une sec
 
 **Génération à la demande** : en mode tas, modifier un réglage (paramètres du copeau, preset, seed, nombre, réceptacle…)
 ne relance pas le calcul, qui peut être long pour un grand lot. Le tas affiché est signalé comme périmé et le bouton
-*Générer le tas* (panneau droit, rappelé sous la vue 3D, touche `G`) le recalcule. *Nouvelle chute* (ou 🎲 / `R`)
+*Générer le tas* (panneau *Tas*, rappelé sous la vue 3D quand le panneau est fermé, touche `G`) le recalcule. *Nouvelle chute* (ou 🎲 / `R`)
 tire une nouvelle seed et relance aussitôt. L'export est refusé tant que le tas affiché ne correspond pas aux réglages.
 En copeau unique, l'aperçu reste instantané.
 
@@ -174,13 +199,16 @@ src/
     pyramid.ts          tas en pyramide : dimensions selon le volume des copeaux, tirage dans le volume
     geometry/chip.ts    section, micro-reliefs, grille structurée, carreaux de Coons, collisions
     geometry/mesh.ts    maillage quad : îlots UV, normales, groupes
-    presets/presets.ts  ISO 3685, matières, procédés, raccourcis, variabilité du tas
+    presets/presets.ts  ISO 3685, matières, procédés, raccourcis, variation globale autour du preset
+    random.ts           aléatoire : variation globale / ciblée, plages par paramètre, validation à l'import
     export/obj.ts       OBJ/MTL en flux
     export/step.ts      STEP AP214 B-Rep NURBS en flux
   worker/               génération et export hors du thread d'interface
   physics/pile.ts       chute physique (Rapier, chargé à la demande)
   viewer/               Three.js : MatCaps procéduraux, grille, filaire, damier UV
-  ui/, app/             interface et orchestration
+  ui/                   interface : shell.ts (barres, volet, vue, clavier), panels/ (Preset, paramètres, Tas),
+                        exportDialog.ts, widgets.ts, controls.ts
+  app/                  orchestration (état, génération, export)
 security/headers.json   politique de sécurité HTTP (source unique)
 scripts/check-dist.mjs  contrôle de sécurité du bundle
 tests/                  Vitest
