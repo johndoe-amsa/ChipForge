@@ -67,6 +67,7 @@ class GeometryWorker {
 
 let preview: GeometryWorker | null = null;
 let exporter: GeometryWorker | null = null;
+let ghosts: GeometryWorker | null = null;
 
 /** Worker dédié à l'aperçu interactif. */
 export function previewWorker(): GeometryWorker {
@@ -76,4 +77,9 @@ export function previewWorker(): GeometryWorker {
 /** Worker séparé pour l'export : l'aperçu reste réactif pendant un export long. */
 export function exportWorker(): GeometryWorker {
   return (exporter ??= new GeometryWorker());
+}
+
+/** Worker de l'aperçu de plage (copeaux fantômes) : n'interrompt pas l'aperçu principal. */
+export function ghostWorker(): GeometryWorker {
+  return (ghosts ??= new GeometryWorker());
 }

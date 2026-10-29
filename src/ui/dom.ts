@@ -81,6 +81,8 @@ const ICONS: Record<string, string[]> = {
   gauge: ['M12 21a9 9 0 1 1 9-9', 'M12 12l4-4', 'M12 12h.01'],
   ingot: ['M3 16l3.5-8h11L21 16z', 'M3 16h18v3H3z'],
   bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
+  eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  shuffle: ['M16 3h5v5', 'M4 20L21 3', 'M21 16v5h-5', 'M15 15l6 6', 'M4 4l5 5'],
 };
 
 export function icon(name: keyof typeof ICONS | string, cls = 'w-4 h-4'): SVGSVGElement {

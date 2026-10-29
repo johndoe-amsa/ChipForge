@@ -42,6 +42,12 @@ function paramControl(app: App, key: ParamKey): Control {
         setRange: (r) => app.setRange(key, r ? normalizeNumberRange(def, r.min, r.max) : undefined),
         drawn: () => app.drawnValue(key) as number | undefined,
         freeze: () => app.freezeParam(key),
+        reroll: () => app.rerollParam(key),
+        preview: () => ({ on: app.rangePreview === key, available: app.state.mode === 'unique', side: app.previewSide }),
+        setPreview: (on) => app.setRangePreview(on ? key : null),
+        setPreviewSide: (side) => {
+          if (app.rangePreview === key) app.setPreviewSide(side);
+        },
       },
     );
   }
@@ -63,6 +69,7 @@ function paramControl(app: App, key: ParamKey): Control {
       setOptions: (o) => app.setRange(key, (o && normalizeChoiceRange(def, o)) || undefined),
       drawn: () => app.drawnValue(key) as string | undefined,
       freeze: () => app.freezeParam(key),
+      reroll: () => app.rerollParam(key),
     },
   );
 }
@@ -93,7 +100,7 @@ export function buildParamPanels(app: App): PanelDef[] {
       reset.disabled = modified() === 0;
     };
     app.on((what) => {
-      if (what.has('params') || what.has('preset') || what.has('random') || what.has('meshes')) refresh();
+      if (what.has('params') || what.has('preset') || what.has('random') || what.has('meshes') || what.has('mode')) refresh();
     });
     refresh();
 

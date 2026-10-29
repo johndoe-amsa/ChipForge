@@ -1,7 +1,7 @@
 import type { App } from '../app/app';
 import { SHORTCUTS } from '../core/presets/presets';
 import { MATCAPS } from '../viewer/textures';
-import { segmented } from './controls';
+import { formatValue, segmented } from './controls';
 import { formatCount, h, icon } from './dom';
 import { buildExportDialog } from './exportDialog';
 import { buildLibraryPanel, swatch } from './panels/library';
@@ -9,7 +9,7 @@ import type { PanelDef } from './panels/panel';
 import { buildParamPanels } from './panels/params';
 import { buildPilePanel } from './panels/pile';
 import { buildRandomPanel } from './panels/random';
-import type { ParamKey } from '../core/params';
+import { PARAM_DEF_MAP, type ParamKey } from '../core/params';
 import { toast } from './toast';
 import { badge, button, dialog, kbd, menu, type Dialog } from './widgets';
 
@@ -370,7 +370,30 @@ function buildViewportOverlay(app: App, root: HTMLElement): void {
     kbd('G'),
   ]);
   staleBtn.addEventListener('click', () => app.generatePile());
-  root.append(progress, toolbar, staleBtn);
+  // Légende de l'aperçu de plage (fantômes minimum / maximum).
+  const pvName = h('span', { class: 'cf-pv-name' });
+  const pvMin = h('span', { class: 'cf-pv-v' });
+  const pvMax = h('span', { class: 'cf-pv-v' });
+  const pvClose = h('button', { class: 'cf-pv-close', title: 'Masquer l’aperçu', attrs: { type: 'button', 'aria-label': 'Masquer l’aperçu de plage' } }, [icon('close', 'w-3.5 h-3.5')]);
+  pvClose.addEventListener('click', () => app.setRangePreview(null));
+  const pvSide = (side: 'min' | 'max', v: HTMLElement) => {
+    const b = h('button', { class: 'cf-pv-item', title: `Montrer le copeau au ${side === 'min' ? 'minimum' : 'maximum'} de la plage`, attrs: { type: 'button' } }, [
+      h('span', { class: `cf-pv-dot cf-pv-${side}` }),
+      h('span', { text: side }),
+      v,
+    ]);
+    b.addEventListener('click', () => app.setPreviewSide(side));
+    return b;
+  };
+  const pvMinBtn = pvSide('min', pvMin);
+  const pvMaxBtn = pvSide('max', pvMax);
+  const pvLegend = h('div', { class: 'cf-pv' }, [
+    icon('eye', 'w-3.5 h-3.5 shrink-0'),
+    pvName,
+    h('span', { class: 'cf-pv-sides', attrs: { role: 'group', 'aria-label': 'Extrême montré' } }, [pvMinBtn, pvMaxBtn]),
+    pvClose,
+  ]);
+  root.append(progress, toolbar, pvLegend, staleBtn);
   app.viewer.frame(false);
 
   const refresh = () => {
@@ -387,6 +410,20 @@ function buildViewportOverlay(app: App, root: HTMLElement): void {
     progress.classList.toggle('is-on', busy);
     (progress.firstChild as HTMLElement).style.width = `${Math.round((busy ? Math.max(0.04, st.progress) : 1) * 100)}%`;
     staleBtn.hidden = !(app.state.mode === 'tas' && app.stale);
+    const pk = app.rangePreview;
+    const pr = pk ? app.state.random.ranges[pk] : undefined;
+    const pdef = pk ? PARAM_DEF_MAP[pk] : undefined;
+    pvLegend.hidden = !(pk && pr?.kind === 'number' && pdef?.kind === 'number' && app.state.mode === 'unique');
+    if (!pvLegend.hidden && pr?.kind === 'number' && pdef?.kind === 'number') {
+      const u = pdef.unit ? ` ${pdef.unit}` : '';
+      pvName.textContent = pdef.label;
+      pvMin.textContent = `${formatValue(pdef, pr.min)}${u}`;
+      pvMax.textContent = `${formatValue(pdef, pr.max)}${u}`;
+      for (const [b, side] of [[pvMinBtn, 'min'], [pvMaxBtn, 'max']] as const) {
+        b.classList.toggle('is-active', app.previewSide === side);
+        b.setAttribute('aria-pressed', String(app.previewSide === side));
+      }
+    }
   };
   app.on(refresh);
   refresh();

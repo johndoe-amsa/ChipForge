@@ -45,6 +45,18 @@ Panneau **Aléatoire** (icône 🎲) :
   options possibles. Dans les deux modes, un paramètre en plage suit toujours sa plage. Bornes inversées : remises dans
   l'ordre ; min = max : valeur fixe.
 
+Sous chaque paramètre en plage :
+- **Aperçu** (copeau unique) : le copeau est montré en transparence, par-dessus le copeau affiché, au **minimum**
+  (bleu) **ou** au **maximum** (orange) de la plage — un seul à la fois, pour rester lisible. L'extrême montré suit la
+  dernière poignée (ou le dernier champ) touché et se met à jour en direct ; la légende dans la vue permet aussi de
+  basculer *min / max* (× pour la masquer). Activé d'office à la création d'une plage.
+- **Tirer** : nouveau tirage de **ce seul paramètre** dans sa plage ; tous les autres réglages restent tels quels
+  (en mode tas, le tas est régénéré). Pour tout tirer, `R` ou le panneau Aléatoire.
+
+Les curseurs s'adaptent aux valeurs : une valeur saisie au-delà des bornes par défaut (ex. torsion à 700 °/mm, saisie
+possible jusqu'à ±720) élargit le curseur, et une plage étroite ou hors des bornes resserre le curseur autour d'elle,
+pour que les deux poignées restent distinctes. Les bornes du curseur sont alors affichées sous celui-ci.
+
 **Copeau unique** : un preset s'affiche d'abord tel quel ; `R` / 🎲 tire un copeau selon ces réglages. La valeur tirée
 s'affiche sous chaque paramètre en plage (« tiré : 34,1 mm ») avec un bouton **Figer** (elle devient la valeur fixe, la
 plage est retirée). *Adopter* fait de tout le tirage les valeurs réglées ; *Valeurs réglées* revient au copeau non tiré.

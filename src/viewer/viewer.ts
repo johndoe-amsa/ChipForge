@@ -7,6 +7,10 @@ import { createMatcap, createUvChecker, MATCAPS } from './textures';
 import { temperBase } from '../core/temper';
 import { binBoxes, type BinGeometry } from '../core/bin';
 
+/** Teintes des fantômes de l'aperçu de plage (minimum, maximum). */
+export const GHOST_MIN = 0x4fb8ff;
+export const GHOST_MAX = 0xffa94d;
+
 export type UvPreview = { mode: 'reel' | 'normalise'; scaleMM: number };
 
 interface ChipObject {
@@ -30,6 +34,9 @@ export class Viewer {
   private readonly gridGroup = new THREE.Group();
   private readonly axes: THREE.AxesHelper;
   private chips: ChipObject[] = [];
+  /** Aperçu de plage : copeaux fantômes translucides (minimum, maximum). */
+  private readonly ghostGroup = new THREE.Group();
+  private readonly ghostMaterials: THREE.MeshMatcapMaterial[];
   private readonly matcaps = new Map<string, THREE.Texture>();
   private readonly material: THREE.MeshMatcapMaterial;
   /** Même ombrage, teinté par les couleurs de revenu (couleurs de sommets). */
@@ -87,10 +94,28 @@ export class Viewer {
       side: THREE.DoubleSide,
     });
 
+    // Fantômes : minimum en bleu, maximum en orange (mêmes teintes que les poignées de plage).
+    this.ghostMaterials = [GHOST_MIN, GHOST_MAX].map(
+      (color) =>
+        new THREE.MeshMatcapMaterial({
+          matcap: this.matcaps.get('argile')!,
+          color,
+          transparent: true,
+          opacity: 0.32,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          // Repoussés en profondeur : là où un fantôme coïncide avec le copeau, le copeau l'emporte (pas de scintillement).
+          polygonOffset: true,
+          polygonOffsetFactor: 4,
+          polygonOffsetUnits: 8,
+        }),
+    );
+    this.ghostGroup.renderOrder = 4;
+
     this.axes = new THREE.AxesHelper(10);
     (this.axes.material as THREE.Material).depthTest = false;
     this.axes.renderOrder = 2;
-    this.scene.add(this.gridGroup, this.axes, this.root, this.binGroup);
+    this.scene.add(this.gridGroup, this.axes, this.root, this.binGroup, this.ghostGroup);
     this.buildGrid(20);
 
     const ro = new ResizeObserver(() => this.resize());
@@ -147,6 +172,29 @@ export class Viewer {
     this.needsRender = true;
   }
 
+  /** Copeaux fantômes de l'aperçu de plage, placés comme le copeau affiché ; [] les retire. */
+  setGhosts(meshes: ChipMesh[], transform: RigidTransform | null, visible = 0): void {
+    for (const ch of this.ghostGroup.children) (ch as THREE.Mesh).geometry.dispose();
+    this.ghostGroup.clear();
+    meshes.forEach((m, i) => {
+      const mesh = new THREE.Mesh(buildGeometry(m, this.uv), this.ghostMaterials[Math.min(i, this.ghostMaterials.length - 1)]);
+      mesh.renderOrder = 4;
+      if (transform) {
+        mesh.matrixAutoUpdate = false;
+        mesh.matrix.compose(new THREE.Vector3(...transform.t), new THREE.Quaternion(...transform.q), new THREE.Vector3(1, 1, 1));
+      }
+      mesh.visible = i === visible;
+      this.ghostGroup.add(mesh);
+    });
+    this.needsRender = true;
+  }
+
+  /** N'affiche que le fantôme d'indice `i` (0 = minimum, 1 = maximum). */
+  showGhost(i: number): void {
+    this.ghostGroup.children.forEach((g, k) => (g.visible = k === i));
+    this.needsRender = true;
+  }
+
   /** Affiche (ou retire avec null) le bac à copeaux. */
   setBin(bin: BinGeometry | null): void {
     for (const ch of this.binGroup.children) (ch as THREE.Mesh | THREE.LineSegments).geometry.dispose();
@@ -187,7 +235,7 @@ export class Viewer {
   setMatcap(id: string): void {
     const tex = this.matcaps.get(id);
     if (!tex) return;
-    for (const mat of [this.material, this.colorMaterial]) {
+    for (const mat of [this.material, this.colorMaterial, ...this.ghostMaterials]) {
       mat.matcap = tex;
       mat.needsUpdate = true;
     }
@@ -243,6 +291,11 @@ export class Viewer {
       box.union(b);
     }
     if (this.binGroup.children.length) box.union(new THREE.Box3().setFromObject(this.binGroup));
+    for (const g of this.ghostGroup.children as THREE.Mesh[]) {
+      if (!g.visible) continue;
+      g.geometry.computeBoundingBox();
+      box.union(g.geometry.boundingBox!.clone().applyMatrix4(g.matrix));
+    }
     return box;
   }
 

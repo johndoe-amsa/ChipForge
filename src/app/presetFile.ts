@@ -1,4 +1,4 @@
-import { sanitizeParams, type ChipParams } from '../core/params';
+import { sanitizeParams, type ChipParams, type ParamKey } from '../core/params';
 import { DEFAULT_PILE, FORMS, MAX_PILE_COUNT, MATERIALS, PROCESSES, SHORTCUTS, type PileSettings, type PresetSelection } from '../core/presets/presets';
 import { PYRAMID_SLOPE_RANGE } from '../core/pyramid';
 import { DEFAULT_RANDOM, sanitizeRanges, type RandomSettings } from '../core/random';
@@ -28,6 +28,8 @@ export interface PresetFile {
   random: RandomSettings;
   /** Copeau unique : valeurs tirées (vrai) ou valeurs du preset (faux). */
   drawn: boolean;
+  /** Copeau unique non tiré : paramètres en plage tirés individuellement. */
+  solo: ParamKey[];
 }
 
 export function serializePreset(data: Omit<PresetFile, 'format' | 'version' | 'createdAt'>): string {
@@ -111,5 +113,7 @@ export function parsePreset(text: string, fallbackParams: ChipParams, fallbackSe
     pile,
     random,
     drawn: own(raw, 'drawn') === true,
+    // Seuls les paramètres ayant une plage peuvent être tirés seuls.
+    solo: Array.isArray(own(raw, 'solo')) ? [...new Set((own(raw, 'solo') as unknown[]).filter((k): k is ParamKey => typeof k === 'string' && Object.prototype.hasOwnProperty.call(random.ranges, k)))] : [],
   };
 }

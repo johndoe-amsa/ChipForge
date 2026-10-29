@@ -1190,35 +1190,12 @@ body.sidebar-collapsed .cf-sidebar {
 }
 
 .cf-drawn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 2px;
   color: var(--text-3);
   font-size: 11px;
-}
-.cf-drawn > svg {
-  color: var(--rand);
 }
 .cf-drawn-v {
   color: var(--rand);
   font-family: var(--mono);
-}
-.cf-drawn-freeze {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: auto;
-  padding: 1px 7px;
-  border-radius: 999px;
-  border: 1px solid var(--border-2);
-  color: var(--text-2);
-  font-size: 10.5px;
-}
-.cf-drawn-freeze:hover {
-  color: var(--text);
-  border-color: var(--rand-line);
-  background: var(--rand-soft);
 }
 .cf-choices {
   display: flex;
@@ -1251,6 +1228,171 @@ body.sidebar-collapsed .cf-sidebar {
 .cf-row.is-flash {
   border-radius: 4px;
   animation: cf-flash 1.4s ease-out;
+}
+
+/* Actions d'un paramètre en plage : Aperçu, Tirer, valeur tirée, Figer */
+.cf-range-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  min-height: 22px;
+}
+.cf-range-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  color: var(--text-2);
+  font-size: 11px;
+  flex: none;
+}
+.cf-range-act:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--rand-line);
+  background: var(--rand-soft);
+}
+.cf-range-act:disabled {
+  opacity: 0.4;
+}
+.cf-range-act.is-active {
+  color: var(--text);
+  border-color: var(--rand-line);
+  background: var(--rand-soft);
+}
+.cf-range-act.is-active svg {
+  color: var(--rand);
+}
+.cf-range-actions .cf-drawn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 0 auto;
+  min-width: 0;
+}
+.cf-drawn-k {
+  color: var(--text-3);
+}
+/* Aperçu actif : la poignée de l'extrême montré prend la couleur du fantôme */
+.cf-row.is-pv-min .cf-dual-lo::-webkit-slider-thumb {
+  background: #4fb8ff;
+  box-shadow: 0 0 0 3px rgb(79 184 255 / 0.35);
+}
+.cf-row.is-pv-max .cf-dual-hi::-webkit-slider-thumb {
+  background: #ffa94d;
+  box-shadow: 0 0 0 3px rgb(255 169 77 / 0.35);
+}
+.cf-row.is-pv-min .cf-dual-lo::-moz-range-thumb {
+  background: #4fb8ff;
+}
+.cf-row.is-pv-max .cf-dual-hi::-moz-range-thumb {
+  background: #ffa94d;
+}
+.cf-row.is-pv-min .cf-range-fields .cf-num-wrap:first-child {
+  border-color: #4fb8ff;
+}
+.cf-row.is-pv-max .cf-range-fields .cf-num-wrap:nth-child(3) {
+  border-color: #ffa94d;
+}
+/* Bornes d'un curseur adapté */
+.cf-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -1px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  opacity: 0.8;
+}
+
+/* Légende de l'aperçu de plage, dans la vue 3D */
+.cf-pv {
+  position: absolute;
+  left: 50%;
+  top: 60px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: rgb(16 18 22 / 0.86);
+  border: 1px solid var(--rand-line);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  z-index: 2;
+}
+.cf-pv > svg {
+  color: var(--rand);
+}
+.cf-pv-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cf-pv-sides {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+}
+.cf-pv-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--text-3);
+}
+.cf-pv-item:hover {
+  color: var(--text);
+}
+.cf-pv-item .cf-pv-v {
+  color: inherit;
+}
+.cf-pv-item:not(.is-active) .cf-pv-dot {
+  opacity: 0.35;
+}
+.cf-pv-item.is-active {
+  background: var(--surface-4);
+  color: var(--text);
+}
+.cf-pv-v {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.cf-pv-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.cf-pv-min {
+  background: #4fb8ff;
+}
+.cf-pv-max {
+  background: #ffa94d;
+}
+.cf-pv-close {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--text-3);
+}
+.cf-pv-close:hover {
+  color: var(--text);
+  background: var(--surface-4);
 }
 
 /* ================================================================== Panneau Aléatoire */

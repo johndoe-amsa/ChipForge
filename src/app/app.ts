@@ -1,6 +1,6 @@
 import type { ChipMesh } from '../core/geometry/mesh';
 import { PARAM_DEF_MAP, type ChipParams, type ParamKey } from '../core/params';
-import { DEFAULT_RANDOM, drawParams, type ParamRange, type RandomSettings, type VariationMode } from '../core/random';
+import { DEFAULT_RANDOM, drawParams, withSalt, type ParamRange, type ParamRanges, type RandomSettings, type VariationMode } from '../core/random';
 import { hashSeed } from '../core/rng';
 import type { LengthUnit, UvMode } from '../core/export/obj';
 import { IDENTITY, safeFileName, type RigidTransform } from '../core/export/transform';
@@ -14,7 +14,7 @@ import {
   type PileSettings,
   type PresetSelection,
 } from '../core/presets/presets';
-import { previewWorker, exportWorker } from '../worker/client';
+import { previewWorker, exportWorker, ghostWorker } from '../worker/client';
 import type { ChipSpec } from '../worker/protocol';
 import { Viewer } from '../viewer/viewer';
 import { chipRadius, pilePyramid, scatterPile, simulatePile } from '../physics/pile';
@@ -60,6 +60,11 @@ export interface AppState {
    * preset telles qu'affichées. Le tas, lui, est toujours tiré.
    */
   drawn: boolean;
+  /**
+   * Copeau unique non tiré : paramètres en plage tirés individuellement (« Tirer » sur la
+   * ligne) ; tous les autres restent aux valeurs réglées.
+   */
+  solo: ParamKey[];
   view: ViewSettings;
   exp: ExportSettings;
 }
@@ -85,6 +90,12 @@ export class App {
   meshes: ChipMesh[] = [];
   /** Paramètres effectifs des copeaux affichés (après tirage). */
   drawnParams: ChipParams[] = [];
+  /** Aperçu de plage : paramètre dont les extrêmes sont montrés en transparence (copeau unique). */
+  rangePreview: ParamKey | null = null;
+  /** Extrême montré par l'aperçu : un seul fantôme à la fois, plus lisible. */
+  previewSide: 'min' | 'max' = 'max';
+  private ghostTimer: ReturnType<typeof setTimeout> | undefined;
+  private ghostToken = 0;
   transforms: RigidTransform[] = [];
   /** Bac à copeaux du tas affiché (dimensions effectives), ou null. */
   bin: BinGeometry | null = null;
@@ -120,6 +131,7 @@ export class App {
       pile: { ...DEFAULT_PILE },
       random: { ...DEFAULT_RANDOM, ranges: {} },
       drawn: false,
+      solo: [],
       view: { matcap: 'argile', wireframe: false, uvChecker: false, grid: true, axes: true, tier: 'rapide' },
       exp: { unit: 'mm', uvMode: 'reel', uvScaleMM: 10, meshDetail: 'fin', stepDetail: 'standard', baseName: '' },
     };
@@ -158,6 +170,7 @@ export class App {
     s.params = { ...s.base };
     // Nouveau preset : on montre d'abord le copeau du preset ; R tire ensuite des variantes.
     s.drawn = false;
+    s.solo = [];
     this.refit = true;
     this.emit('preset', 'params', 'random');
     this.requestRegen(0);
@@ -225,9 +238,14 @@ export class App {
 
   // ------------------------------------------------------------ aléatoire
 
-  /** Le copeau affiché (ou le tas) résulte d'un tirage. */
+  /** Le copeau affiché (ou le tas) résulte d'un tirage, au moins partiel. */
   get isDrawn(): boolean {
-    return this.state.mode === 'tas' || this.state.drawn;
+    return this.state.mode === 'tas' || this.state.drawn || this.state.solo.length > 0;
+  }
+
+  /** Paramètre tiré pour le copeau unique affiché (tirage complet ou « Tirer » sur sa ligne). */
+  isKeyDrawn(key: ParamKey): boolean {
+    return this.state.mode === 'unique' && (this.state.drawn || this.state.solo.includes(key)) && !!this.state.random.ranges[key];
   }
 
   setRandom(r: Partial<{ mode: VariationMode; variability: number }>): void {
@@ -239,26 +257,56 @@ export class App {
     if (this.isDrawn) this.requestRegen();
   }
 
-  /** Plage d'un paramètre (undefined = valeur fixe). */
+  /** Plage d'un paramètre (undefined = valeur fixe). Modifier les bornes garde le sel du tirage. */
   setRange(key: ParamKey, range: ParamRange | undefined): void {
-    const ranges = { ...this.state.random.ranges };
-    if (range) ranges[key] = range;
-    else delete ranges[key];
-    this.state.random = { ...this.state.random, ranges };
+    const s = this.state;
+    const ranges = { ...s.random.ranges };
+    const wasDrawn = this.isDrawn;
+    if (range) ranges[key] = withSalt(range, range.salt ?? ranges[key]?.salt);
+    else {
+      delete ranges[key];
+      s.solo = s.solo.filter((k) => k !== key);
+      if (this.rangePreview === key) this.rangePreview = null;
+    }
+    s.random = { ...s.random, ranges };
     this.emit('random');
-    if (this.isDrawn) this.requestRegen();
+    if (wasDrawn) this.requestRegen();
+    this.scheduleGhosts();
   }
 
   clearRanges(): void {
+    const wasDrawn = this.isDrawn;
     this.state.random = { ...this.state.random, ranges: {} };
+    this.state.solo = [];
+    this.rangePreview = null;
     this.emit('random');
-    if (this.isDrawn) this.requestRegen();
+    if (wasDrawn) this.requestRegen();
+    this.scheduleGhosts();
   }
 
-  /** Copeau unique : retour aux valeurs du preset (sans tirage). */
+  /**
+   * Nouveau tirage d'un seul paramètre en plage (nouveau sel) : les autres paramètres ne
+   * bougent pas. En copeau unique non tiré, seul ce paramètre est tiré ; en mode tas, le tas
+   * est aussitôt régénéré (action explicite, comme R).
+   */
+  rerollParam(key: ParamKey): void {
+    const s = this.state;
+    const r = s.random.ranges[key];
+    if (!r) return;
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    s.random = { ...s.random, ranges: { ...s.random.ranges, [key]: { ...r, salt: a[0] || 1 } } as ParamRanges };
+    if (s.mode === 'unique' && !s.drawn && !s.solo.includes(key)) s.solo = [...s.solo, key];
+    this.emit('random');
+    if (s.mode === 'tas') this.generatePile();
+    else this.scheduleRegen(0);
+  }
+
+  /** Copeau unique : retour aux valeurs réglées (sans tirage). */
   clearDraw(): void {
-    if (!this.state.drawn) return;
+    if (!this.state.drawn && !this.state.solo.length) return;
     this.state.drawn = false;
+    this.state.solo = [];
     this.emit('random');
     if (this.state.mode === 'unique') this.scheduleRegen(0);
   }
@@ -269,9 +317,10 @@ export class App {
    */
   adoptDraw(): void {
     const d = this.drawnParams[0];
-    if (this.state.mode !== 'unique' || !this.state.drawn || !d) return;
+    if (this.state.mode !== 'unique' || !(this.state.drawn || this.state.solo.length) || !d) return;
     this.state.params = { ...d };
     this.state.drawn = false;
+    this.state.solo = [];
     this.emit('params', 'random');
   }
 
@@ -282,6 +331,8 @@ export class App {
     const ranges = { ...this.state.random.ranges };
     delete ranges[key];
     this.state.random = { ...this.state.random, ranges };
+    this.state.solo = this.state.solo.filter((k) => k !== key);
+    if (this.rangePreview === key) this.rangePreview = null;
     this.state.params = { ...this.state.params, [key]: d[key] };
     this.emit('params', 'random');
     this.requestRegen();
@@ -289,7 +340,7 @@ export class App {
 
   /** Valeur tirée d'un paramètre pour le copeau unique affiché, si elle diffère de la valeur réglée. */
   drawnValue(key: ParamKey): number | string | undefined {
-    if (this.state.mode !== 'unique' || !this.state.drawn) return undefined;
+    if (!this.isKeyDrawn(key)) return undefined;
     const d = this.drawnParams[0];
     if (!d) return undefined;
     const v = d[key];
@@ -318,6 +369,56 @@ export class App {
     this.stale = false;
     this.emit('mode', 'stale');
     this.scheduleRegen(0);
+    this.scheduleGhosts();
+  }
+
+  // ------------------------------------------------------------ aperçu de plage
+
+  /** Extrême de la plage montré en transparence ; suit la dernière poignée touchée. */
+  setPreviewSide(side: 'min' | 'max'): void {
+    if (side === this.previewSide) return;
+    this.previewSide = side;
+    this.viewer.showGhost(side === 'min' ? 0 : 1);
+    this.emit('random');
+  }
+
+  /** Montre (ou masque avec null) un extrême de la plage d'un paramètre en transparence. */
+  setRangePreview(key: ParamKey | null): void {
+    if (key && PARAM_DEF_MAP[key]?.kind !== 'number') key = null;
+    if (key === this.rangePreview) return;
+    this.rangePreview = key;
+    this.emit('random');
+    this.scheduleGhosts(0);
+  }
+
+  /**
+   * Fantômes de l'aperçu de plage : le copeau affiché, avec le paramètre au minimum et au
+   * maximum de sa plage. Les deux sont calculés (par un worker dédié, sans interrompre
+   * l'aperçu principal) ; un seul est affiché, et passer de l'un à l'autre est immédiat.
+   */
+  private scheduleGhosts(delay = 60): void {
+    clearTimeout(this.ghostTimer);
+    this.ghostTimer = setTimeout(() => void this.updateGhosts(), delay);
+  }
+
+  private async updateGhosts(): Promise<void> {
+    const token = ++this.ghostToken;
+    const key = this.rangePreview;
+    const r = key ? this.state.random.ranges[key] : undefined;
+    const shown = this.drawnParams[0];
+    if (!key || r?.kind !== 'number' || this.state.mode !== 'unique' || !shown) {
+      this.viewer.setGhosts([], null);
+      return;
+    }
+    const specs: ChipSpec[] = [r.min, r.max].map((v, i) => ({ name: `apercu_${i}`, params: { ...shown, [key]: v }, seed: this.state.seed }));
+    let res: Awaited<ReturnType<ReturnType<typeof ghostWorker>['generate']>>;
+    try {
+      res = await ghostWorker().generate(specs, previewQuality('rapide', 2));
+    } catch {
+      return;
+    }
+    if (!res || token !== this.ghostToken) return;
+    this.viewer.setGhosts(res.meshes, this.transforms[0] ?? null, this.previewSide === 'min' ? 0 : 1);
   }
 
   setPile(p: Partial<PileSettings>): void {
@@ -357,7 +458,15 @@ export class App {
   chipSpecs(): ChipSpec[] {
     const s = this.state;
     if (s.mode === 'unique') {
-      return [{ name: 'copeau_001', params: s.drawn ? drawParams(s.params, s.seed, 0, s.random) : s.params, seed: s.seed }];
+      let params = s.params;
+      if (s.drawn) params = drawParams(s.params, s.seed, 0, s.random);
+      else if (s.solo.length) {
+        // Tirage partiel : seulement les paramètres tirés sur leur ligne.
+        const ranges: ParamRanges = {};
+        for (const k of s.solo) if (s.random.ranges[k]) ranges[k] = s.random.ranges[k];
+        params = drawParams(s.params, s.seed, 0, { mode: 'ciblee', variability: 0, ranges });
+      }
+      return [{ name: 'copeau_001', params, seed: s.seed }];
     }
     const out: ChipSpec[] = [];
     for (let i = 0; i < s.pile.count; i++) {
@@ -502,6 +611,7 @@ export class App {
     }
     this.setStatus({ phase: 'pret', progress: 1, message: '', lastMs: ms });
     this.emit('meshes');
+    if (!wasRefine) this.scheduleGhosts(0);
     // Copeau unique en aperçu rapide : affinage automatique si des micro-reliefs ont été lissés.
     const att = this.meshes[0]?.info.microAttenuation ?? 0;
     clearTimeout(this.refineTimer);
@@ -577,7 +687,7 @@ export class App {
 
   savePreset(name: string): void {
     const s = this.state;
-    const text = serializePreset({ name, selection: s.selection, params: s.params, seed: s.seed, mode: s.mode, pile: s.pile, random: s.random, drawn: s.drawn });
+    const text = serializePreset({ name, selection: s.selection, params: s.params, seed: s.seed, mode: s.mode, pile: s.pile, random: s.random, drawn: s.drawn, solo: s.solo });
     downloadBytes(text, `${safeFileName(name || 'preset', 'preset')}.chipforge.json`, 'application/json');
   }
 
@@ -594,6 +704,9 @@ export class App {
     s.pile = p.pile;
     s.random = p.random;
     s.drawn = p.drawn;
+    s.solo = p.solo;
+    this.rangePreview = null;
+    this.scheduleGhosts(0);
     this.refit = true;
     this.emit('preset', 'params', 'seed', 'mode', 'pile', 'random');
     if (p.mode === 'tas') {

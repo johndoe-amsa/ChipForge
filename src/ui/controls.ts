@@ -46,6 +46,12 @@ export interface NumberRandom {
   drawn(): number | undefined;
   /** Fige la valeur tirée comme valeur fixe. */
   freeze(): void;
+  /** Nouveau tirage de ce seul paramètre. */
+  reroll(): void;
+  /** Aperçu d'un extrême en transparence : actif, disponible (copeau unique), extrême montré. */
+  preview(): { on: boolean; available: boolean; side: 'min' | 'max' };
+  setPreview(on: boolean): void;
+  setPreviewSide(side: 'min' | 'max'): void;
 }
 
 /** Aléatoire d'une liste : tirage parmi les options retenues. */
@@ -54,38 +60,117 @@ export interface ChoiceRandom {
   setOptions(o: string[] | undefined): void;
   drawn(): string | undefined;
   freeze(): void;
+  reroll(): void;
 }
 
 function diceButton(label: string): HTMLButtonElement {
   return h('button', { class: 'cf-dice', attrs: { type: 'button', 'aria-label': `Plage aléatoire : ${label}` } }, [icon('dice', 'w-3.5 h-3.5')]);
 }
 
-/** Ligne « tiré : valeur » sous un paramètre en plage, avec bouton Figer. */
-function drawnLine(onFreeze: () => void): { el: HTMLElement; set(text: string | undefined, canFreeze: boolean): void } {
+function chipButton(ic: string, text: string, title: string, onClick: () => void): HTMLButtonElement {
+  const b = h('button', { class: 'cf-range-act', title, attrs: { type: 'button' } }, [icon(ic, 'w-3 h-3'), h('span', { text })]);
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/**
+ * Barre d'actions d'un paramètre en plage : Aperçu (fantômes), Tirer (ce seul paramètre),
+ * puis la valeur tirée et Figer.
+ */
+function rangeActions(opts: { preview?: () => void; reroll: () => void; freeze: () => void }) {
+  const preview = opts.preview ? chipButton('eye', 'Aperçu', '', opts.preview) : null;
+  const reroll = chipButton('shuffle', 'Tirer', 'Nouveau tirage de ce seul paramètre dans sa plage ; les autres réglages ne bougent pas', opts.reroll);
   const text = h('span', { class: 'cf-drawn-v' });
-  const freeze = h('button', { class: 'cf-drawn-freeze', title: 'Garder cette valeur comme valeur fixe (retire la plage)', attrs: { type: 'button' } }, [icon('check', 'w-3 h-3'), h('span', { text: 'Figer' })]);
-  freeze.addEventListener('click', onFreeze);
-  const el = h('div', { class: 'cf-drawn' }, [icon('dice', 'w-3 h-3 shrink-0'), h('span', { text: 'tiré :' }), text, freeze]);
+  const freeze = chipButton('check', 'Figer', 'Garder cette valeur comme valeur fixe (retire la plage)', opts.freeze);
+  const drawn = h('span', { class: 'cf-drawn' }, [h('span', { class: 'cf-drawn-k', text: 'tiré :' }), text, freeze]);
+  const el = h('div', { class: 'cf-range-actions' }, [preview, reroll, drawn]);
   return {
     el,
-    set(t, canFreeze) {
-      el.hidden = t === undefined;
+    preview,
+    setDrawn(t: string | undefined) {
+      drawn.hidden = t === undefined;
       text.textContent = t ?? '';
-      freeze.hidden = !canFreeze;
     },
   };
 }
 
+/**
+ * Bornes effectives d'un curseur : celles du paramètre, élargies pour inclure des valeurs
+ * saisies au-delà (avec une marge), ou resserrées autour d'une plage trop étroite pour que
+ * les deux poignées restent distinctes. Toujours dans les limites absolues du paramètre.
+ */
+export function sliderExtent(def: NumberDef, vals: number[], zoomRange = false): NumberDef {
+  const log = !!def.log && def.min > 0;
+  let lo = Math.min(def.min, ...vals);
+  let hi = Math.max(def.max, ...vals);
+  let zoomed = false;
+  if (zoomRange && vals.length === 2 && vals[1] > vals[0]) {
+    const [a, b] = vals;
+    const frac = log ? Math.log(b / a) / Math.log(hi / lo) : (b - a) / (hi - lo);
+    if (frac < 0.12) {
+      if (log) {
+        const k = Math.pow(b / a, 2);
+        lo = a / k;
+        hi = b * k;
+      } else {
+        const w = (b - a) * 2;
+        lo = a - w;
+        hi = b + w;
+      }
+      zoomed = true;
+    }
+  }
+  if (!zoomed) {
+    // Marge au-delà des bornes par défaut : la poignée n'est pas collée au bout.
+    if (hi > def.max) hi = log ? hi * 1.25 : hi + 0.1 * (hi - lo);
+    if (lo < def.min) lo = log ? lo / 1.25 : lo - 0.1 * (hi - lo);
+  }
+  lo = Math.max(def.hardMin, lo);
+  hi = Math.min(def.hardMax, hi);
+  if (log) lo = Math.max(lo, def.hardMin > 0 ? def.hardMin : 1e-6);
+  if (!(hi > lo)) return def;
+  return { ...def, min: lo, max: hi };
+}
+
 /** Plage par défaut autour d'une valeur : ±10 % de la course du curseur. */
 export function defaultRange(def: NumberDef, v: number): { min: number; max: number } {
-  const s = toSlider(def, v);
-  let min = fromSlider(def, Math.max(0, s - SLIDER_STEPS / 10));
-  let max = fromSlider(def, Math.min(SLIDER_STEPS, s + SLIDER_STEPS / 10));
+  const ext = sliderExtent(def, [v]);
+  const s = toSlider(ext, v);
+  let min = fromSlider(ext, Math.max(0, s - SLIDER_STEPS / 10));
+  let max = fromSlider(ext, Math.min(SLIDER_STEPS, s + SLIDER_STEPS / 10));
   if (def.integer && min === max) {
-    min = Math.max(def.min, Math.round(v) - 1);
-    max = Math.min(def.max, Math.round(v) + 1);
+    min = Math.max(def.hardMin, Math.round(v) - 1);
+    max = Math.min(def.hardMax, Math.round(v) + 1);
   }
   return { min, max };
+}
+
+/** Repère des bornes d'un curseur élargi ou zoomé (masqué aux bornes par défaut). */
+function scaleLabels(): { el: HTMLElement; set(def: NumberDef, ext: NumberDef): void } {
+  const a = h('span');
+  const b = h('span');
+  const el = h('div', { class: 'cf-scale' }, [a, b]);
+  return {
+    el,
+    set(def, ext) {
+      const changed = ext.min !== def.min || ext.max !== def.max;
+      el.hidden = !changed;
+      if (changed) {
+        a.textContent = formatValue(def, ext.min);
+        b.textContent = formatValue(def, ext.max);
+        el.title = 'Curseur adapté à vos valeurs (bornes par défaut dépassées ou plage étroite)';
+      }
+    },
+  };
+}
+
+/** Vrai tant qu'un pointeur est enfoncé sur l'un des éléments (glisser une poignée). */
+function trackDrag(els: HTMLElement[]): () => boolean {
+  let down = false;
+  for (const e of els) e.addEventListener('pointerdown', () => (down = true));
+  window.addEventListener('pointerup', () => (down = false));
+  window.addEventListener('pointercancel', () => (down = false));
+  return () => down;
 }
 
 export function numberControl(
@@ -111,7 +196,16 @@ export function numberControl(
   const unit = h('span', { class: 'cf-unit', text: def.unit ?? '' });
   const numWrap = h('div', { class: 'cf-num-wrap' }, [num, unit]);
   const head = h('div', { class: 'cf-row-head' }, [label, resetBtn, numWrap]);
-  const el = h('div', { class: 'cf-row', title: def.hint, attrs: { 'data-label': def.label } }, [head, range]);
+  const scale = scaleLabels();
+  const el = h('div', { class: 'cf-row', title: def.hint, attrs: { 'data-label': def.label } }, [head, range, scale.el]);
+
+  // Curseur simple : bornes élargies si la valeur saisie les dépasse (figées pendant le glisser).
+  let ext = def;
+  const dragging = trackDrag([range]);
+  const singleExtent = () => {
+    if (!dragging()) ext = sliderExtent(def, [get()]);
+    return ext;
+  };
 
   // --- Mode plage (aléatoire ciblé)
   let rangeRefresh = () => {};
@@ -129,18 +223,27 @@ export function numberControl(
       h('span', { class: 'cf-unit', text: def.unit ?? '' }),
     ]);
     head.append(rangeFields);
-    // Curseur à deux poignées
-    const lo = h('input', { class: 'cf-dual-input', attrs: { type: 'range', min: '0', max: String(SLIDER_STEPS), step: '1', 'aria-label': `${def.label} (minimum)` } });
-    const hi = h('input', { class: 'cf-dual-input', attrs: { type: 'range', min: '0', max: String(SLIDER_STEPS), step: '1', 'aria-label': `${def.label} (maximum)` } });
+    // Curseur à deux poignées (minimum en bleu, maximum en orange, comme les fantômes de l'aperçu)
+    const lo = h('input', { class: 'cf-dual-input cf-dual-lo', attrs: { type: 'range', min: '0', max: String(SLIDER_STEPS), step: '1', 'aria-label': `${def.label} (minimum)` } });
+    const hi = h('input', { class: 'cf-dual-input cf-dual-hi', attrs: { type: 'range', min: '0', max: String(SLIDER_STEPS), step: '1', 'aria-label': `${def.label} (maximum)` } });
     const fill = h('div', { class: 'cf-dual-fill' });
     const dual = h('div', { class: 'cf-dual' }, [h('div', { class: 'cf-dual-track' }), fill, lo, hi]);
-    el.append(dual);
-    const drawn = drawnLine(() => random.freeze());
-    el.append(drawn.el);
+    const dualScale = scaleLabels();
+    const actions = rangeActions({
+      preview: () => random.setPreview(!random.preview().on),
+      reroll: () => random.reroll(),
+      freeze: () => random.freeze(),
+    });
+    el.append(dual, dualScale.el, actions.el);
+    let dext = def;
+    const dualDragging = trackDrag([lo, hi]);
 
     const commitRange = (min: number, max: number) => random.setRange({ min, max });
     dice.addEventListener('click', () => {
-      random.setRange(random.range() ? undefined : defaultRange(def, get()));
+      const had = !!random.range();
+      random.setRange(had ? undefined : defaultRange(def, get()));
+      // Nouvelle plage : l'aperçu en transparence aide à choisir les bornes.
+      if (!had && random.preview().available) random.setPreview(true);
       refresh();
     });
     const onSlide = (which: 'lo' | 'hi') => {
@@ -153,11 +256,20 @@ export function numberControl(
         lo.value = String(a);
         hi.value = String(b);
       }
-      commitRange(fromSlider(def, a), fromSlider(def, b));
+      commitRange(fromSlider(dext, a), fromSlider(dext, b));
       rangeRefresh();
     };
     lo.addEventListener('input', () => onSlide('lo'));
     hi.addEventListener('input', () => onSlide('hi'));
+    // Fin du glisser : les bornes du curseur s'adaptent à la nouvelle plage.
+    for (const inp of [lo, hi]) inp.addEventListener('change', () => queueMicrotask(() => rangeRefresh()));
+    // L'aperçu montre l'extrême de la dernière poignée (ou du dernier champ) touché.
+    for (const [els, side] of [[[lo, minIn], 'min'], [[hi, maxIn], 'max']] as const) {
+      for (const e of els) {
+        e.addEventListener('pointerdown', () => random.setPreviewSide(side));
+        e.addEventListener('focus', () => random.setPreviewSide(side));
+      }
+    }
     const commitFields = () => {
       const a = Number(minIn.value.replace(',', '.'));
       const b = Number(maxIn.value.replace(',', '.'));
@@ -181,40 +293,61 @@ export function numberControl(
       const r = random.range();
       el.classList.toggle('is-ranged', !!r);
       dice.classList.toggle('is-active', !!r);
-      dice.title = r ? 'Retirer la plage : revenir à une valeur fixe' : 'Faire varier ce paramètre dans une plage (aléatoire ciblé)';
+      dice.title = r ? 'Retirer la plage : revenir à une valeur fixe' : 'Faire varier ce paramètre dans une plage (aléatoire)';
       dice.setAttribute('aria-pressed', String(!!r));
       numWrap.hidden = !!r;
       range.hidden = !!r;
       rangeFields.hidden = !r;
       dual.hidden = !r;
+      actions.el.hidden = !r;
       if (r) {
-        const a = toSlider(def, r.min);
-        const b = toSlider(def, r.max);
-        if (document.activeElement !== lo) lo.value = String(a);
-        if (document.activeElement !== hi) hi.value = String(b);
+        if (!dualDragging()) dext = sliderExtent(def, [r.min, r.max], true);
+        dualScale.set(def, dext);
+        const a = toSlider(dext, r.min);
+        const b = toSlider(dext, r.max);
+        lo.value = String(a);
+        hi.value = String(b);
         fill.style.left = `${(a / SLIDER_STEPS) * 100}%`;
         fill.style.right = `${100 - (b / SLIDER_STEPS) * 100}%`;
         if (document.activeElement !== minIn) minIn.value = formatValue(def, r.min);
         if (document.activeElement !== maxIn) maxIn.value = formatValue(def, r.max);
+      } else dualScale.el.hidden = true;
+      scale.el.hidden = scale.el.hidden || !!r;
+      const pv = random.preview();
+      el.classList.toggle('is-previewing', !!r && pv.on);
+      el.classList.toggle('is-pv-min', !!r && pv.on && pv.side === 'min');
+      el.classList.toggle('is-pv-max', !!r && pv.on && pv.side === 'max');
+      if (actions.preview) {
+        actions.preview.classList.toggle('is-active', pv.on);
+        actions.preview.setAttribute('aria-pressed', String(pv.on));
+        actions.preview.disabled = !pv.available;
+        actions.preview.title = pv.available
+          ? pv.on
+            ? 'Masquer l’aperçu des extrêmes'
+            : 'Montrer en transparence le copeau au minimum (bleu) ou au maximum (orange) de la plage, selon la poignée touchée'
+          : 'Aperçu disponible en mode copeau unique';
       }
       const d = random.drawn();
-      drawn.set(!r || d === undefined ? undefined : `${formatValue(def, d)}${def.unit ? ` ${def.unit}` : ''}`, true);
+      actions.setDrawn(!r || d === undefined ? undefined : `${formatValue(def, d)}${def.unit ? ` ${def.unit}` : ''}`);
     };
   }
 
   const refresh = () => {
     const v = get();
-    range.value = String(toSlider(def, v));
+    const e = singleExtent();
+    scale.set(def, e);
+    range.value = String(toSlider(e, v));
     if (document.activeElement !== num) num.value = formatValue(def, v);
     el.classList.toggle('is-modified', isModified());
     rangeRefresh();
   };
 
   range.addEventListener('input', () => {
-    set(fromSlider(def, Number(range.value)));
+    set(fromSlider(ext, Number(range.value)));
     num.value = formatValue(def, get());
     el.classList.toggle('is-modified', isModified());
   });
+  range.addEventListener('change', () => queueMicrotask(refresh));
   const commit = () => {
     const v = Number(num.value.replace(',', '.'));
     if (!Number.isFinite(v)) {
@@ -274,8 +407,8 @@ export function selectControl(
       return { o, b };
     });
     const chipRow = h('div', { class: 'cf-choices', attrs: { role: 'group', 'aria-label': `${label} : options tirées` } }, chips.map((c) => c.b));
-    const drawn = drawnLine(() => random.freeze());
-    el.append(chipRow, drawn.el);
+    const actions = rangeActions({ reroll: () => random.reroll(), freeze: () => random.freeze() });
+    el.append(chipRow, actions.el);
     dice.addEventListener('click', () => {
       random.setOptions(random.options() ? undefined : options.map((o) => o.value));
       rangeRefresh();
@@ -293,8 +426,9 @@ export function selectControl(
         c.b.classList.toggle('is-active', on);
         c.b.setAttribute('aria-pressed', String(on));
       }
+      actions.el.hidden = !r;
       const d = random.drawn();
-      drawn.set(!r || d === undefined ? undefined : (options.find((o) => o.value === d)?.label ?? d), true);
+      actions.setDrawn(!r || d === undefined ? undefined : (options.find((o) => o.value === d)?.label ?? d));
     };
   }
 

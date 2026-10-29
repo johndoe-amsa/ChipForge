@@ -100,7 +100,7 @@ export function buildRandomPanel(app: App, locate: (key: ParamKey) => void): Pan
           const ext = app.drawnExtent(key);
           if (ext && 'min' in ext && def.kind === 'number') got = `obtenu : ${formatValue(def, ext.min)} – ${fmt(def, ext.max)}`;
           else if (ext && 'values' in ext) got = `obtenu : ${ext.values.map((v) => optionLabel(key, v)).join(', ')}`;
-        } else if (!tas && app.state.drawn) {
+        } else if (!tas && app.isKeyDrawn(key)) {
           const d = app.drawnParams[0]?.[key];
           if (typeof d === 'number' && def.kind === 'number') got = `tiré : ${fmt(def, d)}`;
           else if (typeof d === 'string') got = `tiré : ${optionLabel(key, d)}`;
@@ -136,17 +136,21 @@ export function buildRandomPanel(app: App, locate: (key: ParamKey) => void): Pan
     if (tas) {
       drawState.textContent = app.stale ? 'Réglages modifiés : générez le tas pour appliquer les tirages.' : `Chaque copeau du tas est tiré (seed ${app.state.seed}).`;
     } else {
+      const solo = app.state.solo.length;
       drawState.textContent = app.state.drawn
         ? `Copeau tiré (seed ${app.state.seed}).`
-        : r.mode === 'ciblee' && n === 0
+        : solo
+          ? `${solo} paramètre${solo > 1 ? 's' : ''} tiré${solo > 1 ? 's' : ''} seul${solo > 1 ? 's' : ''} ; les autres sont aux valeurs réglées.`
+          : r.mode === 'ciblee' && n === 0
           ? 'Aucune plage : un tirage ciblé ne changerait que le bruit de la seed.'
           : 'Copeau aux valeurs réglées. R tire un copeau selon ces réglages.';
     }
-    drawState.classList.toggle('is-active', tas || app.state.drawn);
+    const partial = app.state.drawn || app.state.solo.length > 0;
+    drawState.classList.toggle('is-active', tas || partial);
     (drawBtn.children[1] as HTMLElement).textContent = tas ? 'Nouvelle chute' : 'Nouveau tirage';
     drawActions.hidden = tas;
-    adopt.disabled = !app.state.drawn;
-    back.disabled = !app.state.drawn;
+    adopt.disabled = !partial;
+    back.disabled = !partial;
     renderList();
   };
   app.on((what) => {
