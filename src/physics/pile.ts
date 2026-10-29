@@ -14,7 +14,7 @@ import { pyramidGeometry, pyramidPoint, type PyramidGeometry } from '../core/pyr
 /**
  * Précision de la simulation :
  * - rapide : pavés de collision regroupés pour les grands lots, tas jugé immobile quand 98 % des
- *   copeaux le sont, pyramide démoulée vite (fort amortissement) ;
+ *   copeaux le sont (et qu'aucun n'est en chute), pyramide démoulée vite (fort amortissement) ;
  * - precise : pavés d'origine quel que soit le lot, plus d'itérations du solveur, attente de
  *   l'immobilité de tous les copeaux, tassement plus long et non amorti de la pyramide.
  */
@@ -49,7 +49,19 @@ export interface PileOptions {
   /** Précision de la simulation (défaut : rapide). */
   precision?: SimPrecision;
   onFrame?: (transforms: RigidTransform[], progress: number) => void;
+  /** Bilan de fin de simulation (tests, diagnostic). */
+  onEnd?: (info: PileEnd) => void;
   signal?: { cancelled: boolean };
+}
+
+export interface PileEnd {
+  steps: number;
+  reason: 'immobile' | 'limite' | 'annule';
+  /** Copeaux encore en mouvement, et en chute (vitesse verticale nettement négative). */
+  moving: number;
+  falling: number;
+  /** Copeaux qui ne touchent rien (ni la grille, ni le bac, ni un autre copeau) : restés en l'air. */
+  airborne: number;
 }
 
 type RapierModule = typeof import('@dimforge/rapier3d-compat');
@@ -240,18 +252,38 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
     world.removeRigidBody(mold!);
     mold = createMold(R, world, top, tan, -1, 1.15 * Math.hypot(top, top / tan));
   };
+  // Copeau « en chute » : il descend encore nettement (unités : ~ un copeau médian par seconde).
+  const FALL_SPEED = 0.3;
+  const census = () => {
+    let moving = 0;
+    let falling = 0;
+    for (const b of bodies) {
+      if (b.isSleeping()) continue;
+      const v = b.linvel();
+      const w = b.angvel();
+      if (Math.hypot(v.x, v.y, v.z) > 0.01 || Math.hypot(w.x, w.y, w.z) > 0.05) moving++;
+      if (v.y < -FALL_SPEED) falling++;
+    }
+    return { moving, falling };
+  };
+  // Les durées des phases sont des prévisions : tant que des copeaux tombent encore (grand lot,
+  // colonne de chute haute), la phase est prolongée, jusqu'à 3 fois la durée prévue au total.
+  const EXTEND = 240;
+  const stepCap = 3 * maxSteps;
+  let planned = maxSteps;
   let step = 0;
+  let reason: PileEnd['reason'] = 'limite';
   let physicsEnd = performance.now();
   let nextCheck = 180;
   try {
-    while (step < maxSteps) {
+    while (step < stepCap) {
       // Budget de calcul adaptatif : la physique reçoit environ deux tiers du temps, même si
       // l'affichage d'un grand tas est lent. Le résultat ne dépend que du nombre total de pas
       // (déterministe).
       const t0 = performance.now();
       const budget = Math.min(1000, Math.max(12, 2 * (t0 - physicsEnd)));
       let steps = 0;
-      while (step < maxSteps && (steps < 6 || performance.now() - t0 < budget)) {
+      while (step < stepCap && (steps < 6 || performance.now() - t0 < budget)) {
         world.step();
         step++;
         steps++;
@@ -260,18 +292,19 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
       physicsEnd = performance.now();
       if (opt.signal?.cancelled) break;
       let settled = false;
-      if (step >= nextCheck) {
-        nextCheck += 60;
-        // Tas immobile : au plus quelques copeaux bougent encore (un copeau qui tremble ne doit
-        // pas retenir tout le lot).
-        let moving = 0;
-        for (const b of bodies) {
-          if (b.isSleeping()) continue;
-          const v = b.linvel();
-          const w = b.angvel();
-          if (Math.hypot(v.x, v.y, v.z) > 0.01 || Math.hypot(w.x, w.y, w.z) > 0.05) moving++;
+      if (step >= nextCheck || step >= phaseEnd) {
+        const c = census();
+        if (step >= nextCheck) {
+          nextCheck += 60;
+          // Tas immobile : aucun copeau en chute, et au plus quelques-uns qui bougent encore (un
+          // copeau qui tremble ne doit pas retenir tout le lot).
+          settled = c.falling === 0 && c.moving <= prof.settleFraction * n;
         }
-        settled = moving <= prof.settleFraction * n;
+        // Fin de phase prévue alors que des copeaux tombent encore : on prolonge.
+        if (!settled && step >= phaseEnd && c.falling > 0 && step + EXTEND <= stepCap) {
+          phaseEnd = step + EXTEND;
+          planned += EXTEND;
+        }
       }
       if (phase !== 'libre' && (settled || step >= phaseEnd)) {
         if (phase === 'tremie') {
@@ -286,9 +319,31 @@ export async function simulatePile(meshes: ChipMesh[], opt: PileOptions): Promis
           phaseEnd = step + freeSteps;
         }
         nextCheck = step + 120;
-      } else if (settled || step >= phaseEnd) break;
-      opt.onFrame?.(read(), step / maxSteps);
+      } else if (settled || step >= phaseEnd) {
+        reason = settled ? 'immobile' : 'limite';
+        break;
+      }
+      opt.onFrame?.(read(), Math.min(0.99, step / planned));
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
+    }
+    if (opt.signal?.cancelled) reason = 'annule';
+    if (opt.onEnd) {
+      const { moving, falling } = census();
+      let airborne = 0;
+      for (const b of bodies) {
+        let touching = false;
+        for (let c = 0; c < b.numColliders() && !touching; c++) {
+          const col = b.collider(c);
+          world.contactPairsWith(col, (other) => {
+            if (touching || other.parent()?.handle === b.handle) return;
+            world.contactPair(col, other, (m) => {
+              if (m.numContacts() > 0) touching = true;
+            });
+          });
+        }
+        if (!touching) airborne++;
+      }
+      opt.onEnd({ steps: step, reason, moving, falling, airborne });
     }
     return read();
   } finally {

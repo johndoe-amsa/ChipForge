@@ -105,11 +105,14 @@ En copeau unique, l'aperçu reste instantané.
 **Simulation *Rapide* / *Précise*** (réglage du tas) :
 - *Rapide* (défaut) : au-delà de 120 copeaux, les pavés de collision de chaque copeau sont regroupés par 2 (jusqu'à 400)
   puis par 3 (enveloppe un peu plus large, contacts beaucoup moins nombreux) ; le tas est jugé immobile quand 98 % des
-  copeaux le sont ; la pyramide est démoulée vite, avec un fort amortissement.
+  copeaux le sont et qu'aucun n'est plus en chute ; la pyramide est démoulée vite, avec un fort amortissement.
 - *Précise* : pavés d'origine quel que soit le lot, plus d'itérations du solveur, attente de l'immobilité de tous les
   copeaux, tassement plus long et non amorti de la pyramide.
 
-Dans les deux cas, la physique garde environ deux tiers du temps de calcul même si l'affichage du tas est lent.
+Dans les deux cas, la simulation ne s'arrête jamais tant qu'un copeau tombe encore : les durées des étapes (chute,
+remplissage de la trémie, tassement, démoulage) sont des prévisions, prolongées automatiquement pour un grand lot dont
+la colonne de chute est haute, jusqu'à 3 fois la durée prévue. La physique garde environ deux tiers du temps de calcul
+même si l'affichage du tas est lent.
 
 
 Les copeaux tombent en monticule sur la grille ou, avec *Réceptacle : Dans un bac*, dans un bac rectangulaire ouvert
